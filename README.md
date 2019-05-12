@@ -17,3 +17,4 @@ Esse é um projeto que utilizo em vários clientes aqui na Fabrício Lima, um da
 Esse não é um projeto do Dirceu ou do Fabrício, e sim de vocês. Por este motivo, estou liberando o código dessa Stored Procedure no Github, para que todos vocês possam baixar, utilizar em seus ambientes e ajudar a deixá-la cada vez melhor através de commit’s e pull requests para trazer novos recursos e correções
 
 Artigo dessa Stored Procedure: 
+https://www.dirceuresende.com/blog/sql-server-checklist-de-seguranca-uma-sp-com-mais-de-70-itens-de-seguranca-para-validar-seu-banco-de-dados/
