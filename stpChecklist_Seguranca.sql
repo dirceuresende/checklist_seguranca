@@ -1,9 +1,9 @@
-IF (OBJECT_ID('dbo.stpChecklist_Seguranca') IS NULL) EXEC('CREATE PROCEDURE dbo.stpChecklist_Seguranca AS SELECT 1')
+IF (OBJECT_ID('dbo.stpSecurity_Checklist') IS NULL) EXEC('CREATE PROCEDURE dbo.stpSecurity_Checklist AS SELECT 1')
 GO
 
 --------------------------------------------------------------------------------------------------------------------
 --
--- stpChecklist_Seguranca - 1.0.4 (11/04/2019)
+-- stpSecurity_Checklist - 1.0.4 (21/06/2019)
 -- Checklist de segurança para ambientes SQL Server - Mais de 70 validações de segurança!!
 -- 
 -- Precisa de ajuda para corrigir algum problema?
@@ -11,7 +11,10 @@ GO
 --
 --------------------------------------------------------------------------------------------------------------------
 
-ALTER PROCEDURE dbo.stpChecklist_Seguranca
+CREATE OR ALTER PROCEDURE dbo.stpSecurity_Checklist (
+	@language VARCHAR(2) = NULL,
+	@heavy_operations BIT = 1
+)
 AS 
 BEGIN
 
@@ -22,10 +25,10 @@ BEGIN
     IF (OBJECT_ID('tempdb..#Resultado') IS NOT NULL) DROP TABLE #Resultado
     CREATE TABLE #Resultado (
         Id_Verificacao INT NOT NULL PRIMARY KEY,
-        Ds_Categoria VARCHAR(100) NOT NULL,
-        Ds_Titulo VARCHAR(100) NOT NULL,
-        Ds_Resultado VARCHAR(100) NOT NULL,
-        Ds_Descricao VARCHAR(MAX) NOT NULL,
+        Ds_Categoria VARCHAR(100) NULL,
+        Ds_Titulo VARCHAR(100) NULL,
+        Ds_Resultado VARCHAR(100) NULL,
+        Ds_Descricao VARCHAR(MAX) NULL,
         Ds_Verificacao VARCHAR(MAX) NULL,
         Ds_Sugestao VARCHAR(MAX) NULL,
         Ds_Referencia VARCHAR(500) NULL,
@@ -56,14 +59,1563 @@ BEGIN
         ELSE 2019
     END)
 
+	
+	SET @language = (CASE
+		WHEN NULLIF(LTRIM(RTRIM(@language)), '') IS NULL THEN (SELECT CASE WHEN [value] IN (5, 7, 27) THEN 'pt' ELSE 'en' END FROM sys.configurations WHERE [name] = 'default language')
+		ELSE @language 
+	END)
+
+	
+	---------------------------------------------------------------------------------------------------------------
+    -- Idiomas
+    ---------------------------------------------------------------------------------------------------------------
+
+	IF (@language = 'pt')
+	BEGIN
     
+		INSERT INTO #Resultado
+		(
+			Id_Verificacao,
+			Ds_Categoria,
+			Ds_Titulo,
+			Ds_Resultado,
+			Ds_Descricao,
+			Ds_Verificacao,
+			Ds_Sugestao,
+			Ds_Referencia,
+			Ds_Detalhes
+		)
+		VALUES
+			(-8, 'Avisos', 'Copyright', 'Informativo', 'stpChecklist_Seguranca 1.0', NULL, NULL, NULL, '<Detalhes><Copyright>Stored Procedure desenvolvida por Dirceu Resende</Copyright><Website>https://www.dirceuresende.com</Website></Detalhes>'),
+			(-7, 'Avisos', 'Versão', 'Informativo', @@VERSION, NULL, NULL, NULL, NULL),
+			(-6, 'Avisos', 'Informações da máquina', 'Informativo', NULL, NULL, NULL, NULL, NULL),
+			(-5, 'Avisos', 'Data de Inicialização', 'Informativo', NULL, NULL, NULL, NULL, NULL),
+			(-4, 'Avisos', 'Parâmetros de Inicialização', 'Informativo', 'Verifica os parâmetros de inicialização utilizados pela instância do SQL Server', NULL, NULL, NULL, NULL),
+			(-3, 'Avisos', 'Instâncias no servidor', 'Informativo', NULL, NULL, NULL, NULL, NULL),
+			(-2, 'Avisos', 'Instâncias rodando em CLUSTER', 'Informativo', (CASE WHEN CAST(SERVERPROPERTY('IsClustered') AS VARCHAR(10)) = '1' THEN 'SIM' ELSE 'NÃO' END), NULL, NULL, NULL, NULL),
+			(-1, 'Avisos', 'Ajuda', 'Informativo', 'Encontrou algum problema e precisa de ajuda? Solicite agora uma consultoria e protega seu ambiente com uma equipe de especialistas', NULL, NULL, NULL, '<Contatos><Whatsapp>https://bit.ly/dirceuresende</Whatsapp><Telegram>https://t.me/dirceuresende</Telegram><Skype>@dirceuresende</Skype><Email>contato@fabriciolima.net</Email></Contatos>'),
+			(0, '----------------------', '----------------------', '----------------------', '----------------------', NULL, NULL, NULL, NULL),
+			(
+				1, 
+				'Configuração',
+				'Trustworthy', 
+				NULL, 
+				'Configuração que permite executar comandos maliciosos dentro do database e "tomar o controle" de outros databases por usuários que estão na role db_owner',
+				'Verifica se algum database possui a propriedade "TRUSTWORTHY" habilitado',
+				'Desative a propriedade "TRUSTWORTHY" de todos os databases. Caso utilize para assemblies SQLCLR, utilize chaves de criptografia',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/security/trustworthy-database-property?view=sql-server-2017',
+				NULL
+			),
+			(
+				2, 
+				'Configuração',
+				'Auditoria de Falhas de Login', 
+				NULL, 
+				'Configuração que permite auditar falhas de login na instância quando usuários erram a senha. Essa configuração é recomendável estar ativada para conseguir identificar possíveis ataques de força-bruta na instância', 
+				'Verifica se a instância está gravando no log quando o usuário erra uma senha',
+				'Ativar a auditoria de conexão para falhas de login',
+				'https://www.mssqltips.com/sqlservertip/1735/auditing-failed-logins-in-sql-server/',
+				NULL
+			),
+			(
+				3, 
+				'Configuração',
+				'Autenticação Windows Apenas',
+				NULL, 
+				'Configuração que permite a autenticação utilizando Segurança Integrada do Windows (mais seguro), mas também autenticação SQL Server, utiliando usuário e senha (menos seguro). Essa configuração não é exatamente um problema, pois existem aplicações legadas que requerem autenticação SQL Server, mas é uma boa prática evitar esse cenário, quando possível.',
+				'Verifica se a instância está permitindo conexões de logins SQL Server',
+				'Desativar a autenticação de logins SQL Server, quando possível',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/security/choose-an-authentication-mode?view=sql-server-2017',
+				NULL
+			),
+			(
+				4, 
+				'Configuração',
+				'Ad hoc distributed queries', 
+				NULL, 
+				'Configuração que permite executar possíveis comandos remotamente através de OPENROWSET/OPENDATASOURCE. Os possíveis problemas de segurança causados por essa configuração é a possibilidade do provider conter algum bug de segurança, possibilidade de um servidor comprometido acessar dados de um servidor ainda não comprometido ou mesmo um servidor comprometido enviar de volta informações durante ataques hackers',
+				'Verifica se a configuração "Ad hoc distributed queries" está habilitada no sp_configure',
+				'Desativar a configuração "Ad hoc distributed queries" caso não esteja utilizando OPENROWSET/OPENDATASOURCE e nem o SQL Server 2005',
+				'https://cuttingedge.it/blogs/steven/pivot/entry.php?id=44',
+				NULL
+			),
+			(
+				5, 
+				'Configuração',
+				'cross db ownership chaining', 
+				NULL, 
+				'Configuração que permite que uma pessoa acesse objetos que ela não tenha acesso em outro database através de cenários específicos de "cross db ownership chaining"',
+				'Verifica se a configuração "cross db ownership chaining" está ativa no sp_configure',
+				'Desative a configuração "cross db ownership chaining" caso não esteja utilizando esse recurso (sua utilização não é muito comum)',
+				'http://www.sqlservercentral.com/articles/Stairway+Series/123545/',
+				NULL
+			),
+			(
+				6, 
+				'Configuração',
+				'Atualizações do SQL Server/Windows', 
+				NULL, 
+				'Essa validação identifica quando a instância está há mais de 60 dias sem ser reiniciada, indicando que atualizações de Windows e do SQL Server não estão sendo aplicados',
+				'Verifica a quantos dias o serviço do SQL Server está online',
+				'Aplique atualizações de Windows e também Service Packs e Cumulative Updates do SQL Server. Muitas atualizações são correções e pacotes de segurança',
+				'https://sqlserverbuilds.blogspot.com/',
+				NULL
+			),
+			(
+				7, 
+				'Configuração',
+				'Databases sem verificação de página', 
+				NULL, 
+				'Configuração que permite que o SQL Server grave um CHECKSUM em cada página à medida que vai para o armazenamento e, em seguida, verifique o CHECKSUM novamente quando os dados são lidos do disco para tentar garantir a integridade dos dados. Isso pode gerar uma pequena sobrecarga de CPU, mas normalmente vale a pena recuperar-se da corrupção',
+				'Verifica se algum database está utilizando algum algoritmo de validação de página diferente do CHECKSUM (NONE ou TORN_PAGE)',
+				'Altere o algoritmo de validação de página de todos os databases para CHECKSUM',
+				'https://www.brentozar.com/blitz/page-verification/',
+				NULL
+			),
+			(
+				8, 
+				'Configuração',
+				'Default trace habilitado', 
+				NULL,
+				'Configuração que permite que o SQL Server colete algumas informações da instância pelo Default Trace, como alguns comandos de DDL, DCL, etc.',
+				'Verifica se o trace padrão do SQL Server está habilitado e executando',
+				'Habilite o trace padrão do SQL Server para auditar eventos',
+				'https://www.dirceuresende.com/blog/utilizando-o-trace-padrao-do-sql-server-para-auditar-eventos-fn_trace_gettable/',
+				NULL
+			),
+			(
+				9, 
+				'Configuração',
+				'scan for startup procs', 
+				NULL,
+				'Configuração que permite que uma pessoa monitore quais objetos são executados na inicialização do SQL Server e crie códigos maliciosos nesses objetos.',
+				'Verifica se a configuração "scan for startup procs" está habilitada na instância através da sp_configure',
+				'Desative essa configuração caso não esteja realizando nenhuma validação do que é executado durante a inicialização do SQL Server',
+				'https://docs.microsoft.com/pt-br/sql/database-engine/configure-windows/configure-the-scan-for-startup-procs-server-configuration-option?view=sql-server-2017',
+				NULL
+			),
+			(
+				10, 
+				'Configuração',
+				'DatabaseMail XPs', 
+				NULL,
+				'Configuração que permite que uma pessoa envie e-mails e informações do banco para outras pessoas utilizando o DatabaseMail. Embora isso seja bastante utilizado por sistemas e alertas, você deve verificar se isso realmente é necessário na instância e se está sendo utilizado. Caso não esteja, desative essa opção.',
+				'Verifica se a configuração "Database Mail XPs" está habilitada na sp_configure',
+				'Desative essa configuração caso não tenha nenhuma rotina que envie e-mails pelo banco de dados e que não possa ser enviado pelo SSIS, por exemplo',
+				'https://www.sqlshack.com/securing-sql-server-surface-area/',
+				NULL
+			),
+			(
+				11, 
+				'Configuração',
+				'SQL Mail XP', 
+				NULL,
+				'Configuração que permite que uma pessoa envie e-mails e informações do banco para outras pessoas utilizando o SQL Mail XP (Disponível até o SQL Server 2012. Após isso, foi substituído pelo DatabaseMail). Embora isso seja bastante utilizado por sistemas e alertas, você deve verificar se isso realmente é necessário na instância e se está sendo utilizado. Caso não esteja, desative essa opção.',
+				'Verifica se a configuração "SQL Mail XP" está habilitada na sp_configure',
+				'Desative essa configuração caso não tenha nenhuma rotina que envie e-mails pelo banco de dados e que não possa ser enviado pelo SSIS, por exemplo',
+				'https://www.sqlshack.com/securing-sql-server-surface-area/',
+				NULL
+			),
+			(
+				12, 
+				'Configuração',
+				'Remote Admin Connections (DAC)', 
+				NULL,
+				'Configuração que permite que usuários administradores (sysadmin) possam logar na instância mesmo quando ela está com algum problema que impede o logon ou quando o limite de conexões da instância é atingido. Essa configuração deve ser habilitada para que seja possível utilizá-la em casos de emergência.',
+				'Verifica se a configuração "remote admin connections" está habilitada na sp_configure',
+				'Habilite a configuração "remote admin connections" na sp_configure',
+				'https://www.dirceuresende.com/blog/habilitando-e-utilizando-a-conexao-remota-dedicada-para-administrador-dac-no-sql-server/',
+				NULL
+			),
+			(
+				13, 
+				'Configuração',
+				'Remote Access', 
+				NULL,
+				'Configuração que permite que usuários executem Stored Procedures remotamente através de Linked Server, permitindo que um hacker possa utilizar uma instância comprometida para realizar ataques de DDoS em outra instância da rede. Esse parâmetro está marcado como Deprecated e caso não seja utilizado por nenhuma rotina, deve ser desativado.',
+				'Verifica se a configuração "remote access" está habilitada na sp_configure',
+				'Desabilite a configuração "remote access" caso você não utilize Stored Procedures remotamente, utilizando Linked Servers',
+				'https://docs.microsoft.com/pt-br/sql/database-engine/configure-windows/configure-the-remote-access-server-configuration-option?view=sql-server-2017',
+				NULL
+			),
+			(
+				14, 
+				'Configuração',
+				'SMO and DMO XPs', 
+				NULL,
+				'Configuração que permite que usuários programem no SQL Server utilizando linguagens de programação como C#, VB e PowerShell. Caso não esteja sendo utilizado, a boa prática é desativar esse recurso. Obs: Caso esteja utilizando o SSMS 17 para acessar o SQL Server 2005, pode ser necessário habilitar esse parâmetro para conseguir utilizar o SSMS',
+				'Verifica se a configuração "SMO and DMO XPs" está habilitada na sp_configure',
+				'Desative a configuração "SMO and DMO XPs" caso não utilize programação SMO',
+				'https://www.stigviewer.com/stig/microsoft_sql_server_2005_instance/2015-04-03/finding/V-15211',
+				NULL
+			),
+			(
+				15, 
+				'Configuração',
+				'Server Trigger Habilitada', 
+				NULL, 
+				'Essa configuração valida se alguma trigger a nível de servidor está habilitada no ambiente. Esse recurso pode ser utilizado por hackers para impedir o logon de determinados usuários',
+				'Verifica se alguma trigger a nível de servidor está habilitada na instância',
+				'Valide se essa server trigger está correta e não influi em nenhum risco para os usuários',
+				NULL,
+				NULL
+			),
+			(
+				16, 
+				'Configuração',
+				'Trace Habilitado',
+				NULL, 
+				'Essa configuração valida se algum trace está habilitado no ambiente. Esse recurso permite analisar e capturar informações das consultas executadas no banco. Da mesma forma que isso pode ser utilizado para fins de auditoria, pode também ser utilizado para capturar dados sensíveis por pessoas mal intencionadas',
+				'Verifica se algum trace (que não o trace default) está habilitado na instância',
+				'Valide se esse trace realmente foi criado pelo time de DBA e não influi em nenhum risco para os usuários',
+				NULL,
+				NULL
+			),
+			(
+				17, 
+				'Configuração',
+				'Extended Events (XE) Habilitado',
+				NULL, 
+				'Essa configuração valida se algum Extended Event (XE) está habilitado no ambiente. Esse recurso permite analisar e capturar informações das consultas executadas no banco. Da mesma forma que isso pode ser utilizado para fins de auditoria, pode também ser utilizado para capturar dados sensíveis por pessoas mal intencionadas',
+				'Verifica se algum Extended Event (que não os padrões do SQL Server) está habilitado na instância',
+				'Valide se esse XE realmente foi criado pelo time de DBA e não influi em nenhum risco para os usuários',
+				NULL,
+				NULL
+			),
+			(
+				100, 
+				'Segurança de Usuários',
+				'Falha de usuário/senha', 
+				NULL, 
+				'Verifica quantas tentativas de login tiveram falha por usuário e senha incorretos',
+				'Verifica no log do SQL Server os eventos de falha de login por senha incorreta',
+				'Verifique a origem dessas conexões e caso não as conheça, bloqueie o IP no Firewall. Uma boa sugestão é alterar periodicamente a senha dos usuários SQL e utilizar senhas fortes para evitar invasões',
+				'https://www.dirceuresende.com/blog/sql-server-como-evitar-ataques-de-forca-bruta-no-seu-banco-de-dados/',
+				NULL
+			),
+			(
+				101, 
+				'Segurança de Usuários',
+				'Usuário SA', 
+				NULL, 
+				'Usuário padrão do SQL Server que possui a permissão mais elevada possível (sysadmin). Deve ser desativado e renomeado para evitar possíveis ataques hackers',
+				'Verifica se o usuário "sa" está habilitado',
+				'Desative o usuário "sa" e altere o nome desse usuário',
+				'https://www.dirceuresende.com/blog/sql-server-como-desativar-o-login-sa-minimizando-impactos/',
+				NULL
+			),
+			(
+				102, 
+				'Segurança de Usuários',
+				'Usuários Órfãos', 
+				NULL, 
+				'Usuários que não possuem logins associados. Provavelmente algum erro de mapeamento. Esses usuários devem ser removidos ou remapeados com o respectivo login. Esse tipo de situação pode ser utilizada por hackers para tentar acessar bases que esses usuários possuem permissão',
+				'Verifica usuários criados nos databases e que não possuem logins associados na instância',
+				'Tente refazer o mapeamento com a sp_change_users_login. Caso o login realmente não exista, tenta analisar se esse usuário pode ser removido',
+				'https://www.dirceuresende.com/blog/identificando-e-resolvendo-problemas-de-usuarios-orfaos-no-sql-server-com-a-sp_change_users_login/',
+				NULL
+			),
+			(
+				103, 
+				'Segurança de Usuários',
+				'Usuários sem políticas de troca de senha', 
+				NULL, 
+				'Logins SQL Server que não possuem política de senha, ou seja, a senha não expira e/ou não tem exigências de complexidade definidas. Caso seja um usuário de aplicação, esse alerta pode ser ignorado, mas caso seja login de um usuário, ele deve ser forçado a trocar a senha regularmente e ter senhas difíceis de serem quebradas',
+				'Verifica os logins que não possuem as opções de expiração de senha e/ou conformidade com as políticas de senha',
+				'Habilite as opções de "enforce password policy" e "enforce password expiration" na tela de propriedades do login',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/security/password-policy?view=sql-server-2017',
+				NULL
+			),
+			(
+				104, 
+				'Segurança de Usuários',
+				'Usuários com senha antiga', 
+				NULL, 
+				'Logins SQL Server que a senha não expira e não é alterada há mais de 180 dias. Mesmo sendo um usuário de aplicação, a senha do usuário deve ser alterada regularmente para evitar possíveis ataques hackers',
+				'Verifica se a senha do login SQL Server não é alterada há mais de 180 dias',
+				'Altere a senha de todos os logins SQL Server regularmente para evitar vazamentos de senhas',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/security/password-policy?view=sql-server-2017',
+				NULL
+			),
+			(
+				105, 
+				'Segurança de Usuários',
+				'Usuários com senha fraca', 
+				NULL, 
+				'Logins SQL Server que possuem senhas fracas e que foram facilmente quebradas utilizando essa Stored Procedure',
+				'Tenta quebrar a senha dos logins SQL utilizando a função PWDCOMPARE e uma pequena base de senhas mais comuns',
+				'Altere regularmente a senha dos logins SQL e utilize senhas fortes e complexas para dificultar ataques de força bruta',
+				'https://www.dirceuresende.com/blog/sql-server-como-identificar-senhas-frageis-vazias-ou-iguais-ao-nome-do-usuario/',
+				NULL
+			),
+			(
+				106, 
+				'Segurança de Usuários',
+				'Usuários sem Permissão', 
+				NULL, 
+				'Usuários que não possuem nenhuma permissão no database, ou seja, devem estar criados no banco sem nenhuma necessidade. Esses usuários provavelmente podem ser excluídos do database com segurança.',
+				'Identifica usuários de databases que não estão em nenhuma role e nem possuem nenhuma permissão no banco',
+				'Analise se esses usuários podem ser removidos',
+				NULL,
+				NULL
+			),
+			(
+				107, 
+				'Segurança de Usuários',
+				'Usuários AD sem utilizar Kerberos', 
+				NULL, 
+				'Identifica se o protocolo de autenticação NTLM está sendo utilizado ao invés do Kerberos, que é um protocolo mais seguro de comunicação entre servidores e permite do Double-Hop',
+				'Identifica usuários com autenticação AD na sys.dm_exec_connections que não estão utilizando o Kerberos',
+				'Analise se o SPN da instância está configurado corretamente nos registros do AD',
+				'https://www.dirceuresende.com/blog/sql-server-autenticacao-ad-kerberos-ntlm-login-failed-for-user-nt-authorityanonymous-logon/',
+				NULL
+			),
+			(
+				108, 
+				'Segurança de Usuários',
+				'Permissão VIEW ANY DATABASE', 
+				NULL, 
+				'Identifica se existe algum usuário com permissão de VIEW ANY DATABASE, permitindo assim, que ele veja o nome de todos os databases da instância',
+				'Analisa na DMV sys.server_permissions se algum usuário com autenticação SQL tenha permissão de VIEW ANY DATABASE',
+				'Remova a permissão VIEW ANY DATABASE da role padrão public e de todos os usuários que não acessam o SQL Server pelo SSMS, especialmente sistemas. Utilizar o grupo do AD DOMINIO\Domain Users pode ser uma alternativa mais segura ao public',
+				'https://www.dirceuresende.com/blog/sql-server-como-ocultar-os-databases-para-usuarios-nao-autorizados/',
+				NULL
+			),
+			(
+				200, 
+				'Programação',
+				'xp_cmdshell', 
+				NULL, 
+				'Configuração que permite executar comandos maliciosos dentro do database através do xp_cmdshell',
+				'Verifique se a configuração "xp_cmdshell" está habilitada na sp_configure',
+				'Desabilite essa configuração caso não esteja utilizando em nenhuma rotina. Caso esteja, tente utilizar outra solução, como o SQLCLR, para prover essa funcionalidade',
+				'http://www.sqlservercentral.com/blogs/brian_kelley/2009/11/13/why-we-recommend-against-xp-cmdshell/',
+				NULL
+			),
+			(
+				201, 
+				'Programação',
+				'Ole Automation', 
+				NULL, 
+				'Configuração que permite executar comandos maliciosos dentro do database através de procedures OLE Automation',
+				'Verifique se a configuração "Ole Automation Procedures" está habilitada na sp_configure',
+				'Desabilite essa configuração caso não esteja utilizando em nenhuma rotina. Caso esteja, tente utilizar outra solução, como o SQLCLR, para prover essa funcionalidade',
+				'https://www.stigviewer.com/stig/microsoft_sql_server_2005_instance/2015-04-03/finding/V-2472',
+				NULL
+			),
+			(
+				202, 
+				'Programação',
+				'SQLCLR', 
+				NULL, 
+				'Configuração que permite executar comandos maliciosos dentro do database através de procedures SQLCLR',
+				'Verifica se a configuração "clr enabled" está habilitada na sp_configure',
+				'Desabilite a configuração "clr enabled" caso não esteja utilizando nenhuma biblioteca SQLCLR',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/clr-integration/security/clr-integration-code-access-security?view=sql-server-2017',
+				NULL
+			),
+			(
+				203, 
+				'Programação',
+				'SQLCLR Unsafe/External Access', 
+				NULL, 
+				'Configuração que permite executar comandos maliciosos dentro do database através de procedures SQLCLR com permissão Unsafe/External Access',
+				'Verifica se algum assembly, de algum database, foi criado com a PERMISSION_SET = UNSAFE ou EXTERNAL_ACCESS',
+				'Valide se essa biblioteca está realmente sendo utilizada e assine o assembly utilizando certificado de criptografia',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/clr-integration/security/clr-integration-code-access-security?view=sql-server-2017',
+				NULL
+			),
+			(
+				204, 
+				'Programação',
+				'Scripts Externos (R, Python ou Java)', 
+				NULL, 
+				'Configuração que permite executar comandos maliciosos dentro do database através de scripts em linguagem R (SQL 2016), Python (SQL 2017) ou Java (SQL 2019)',
+				'Verifica se a configuração "external scripts enabled" está habilitada na sp_configure',
+				'Desabilite a configuração "external scripts enabled" caso não utilize scripts Python, R ou Java no SQL Server',
+				'https://www.stigviewer.com/stig/ms_sql_server_2016_instance/2018-03-09/finding/V-79347',
+				NULL
+			),
+			(
+				300, 
+				'Segurança dos Dados',
+				'Transparent Data Encryption (TDE)', 
+				NULL, 
+				'Configuração que permite criptografar os dados do banco, backups e logs para evitar acesso indevido aos dados',
+				'Valida os databases que não possuem o TDE habilitado',
+				'Habilite o TDE nas bases do SQL Server 2008+ para criptografar os dados, logs e backups automaticamente',
+				'https://www.dirceuresende.com/blog/sql-server-2008-como-criptografar-seus-dados-utilizando-transparent-data-encryption-tde/',
+				NULL
+			),
+			(
+				301, 
+				'Segurança dos Dados',
+				'Databases sem Backup', 
+				NULL, 
+				'Validação que identifica bancos de dados SEM BACKUP, o que pode causar um tragédia caso algum dado fique corrompido',
+				'Verifica bancos de dados que não possuem nenhum tipo de backup nos últimos 7 dias',
+				'Crie rotinas automáticas para backup FULL + DIFF + LOG em ambiente de produção ou backup FULL diário para ambientes não críticos',
+				'https://edvaldocastro.com/politicabkp/',
+				NULL
+			),
+			(
+				302, 
+				'Segurança dos Dados',
+				'Backups sem Criptografia', 
+				(CASE WHEN @Versao <= 2008 THEN 'Não suportado' WHEN NULL IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
+				'Validação que identifica bancos de dados com backup sem criptografia, o que possibilita que terceiros consigam ler os dados caso eles consigam acesso os arquivos de backup',
+				'Verifica backups de bancos de dados sem criptografia',
+				'Implemente TDE no database ou altere a sua rotina de backup para criptografar os backups',
+				'https://www.tiagoneves.net/blog/criando-um-backup-criptografado-no-sql-server/',
+				NULL
+			),
+			(
+				303, 
+				'Segurança dos Dados',
+				'Recovery Model FULL sem Backup de LOG', 
+				NULL, 
+				'Validação que identifica bancos de dados com recovery model definido como FULL, mas sem rotina de backup de log configurada, o que provavelmente é uma configuração incorreta ou falta de rotina de backup',
+				'Verifica bancos de dados com recovery model FULL, mas sem rotina de backup de log',
+				'Implemente uma rotina automática de backup de log ou altere o Recovery Model para SIMPLE, caso não seja um ambiente crítico e dados após o último possam ser perdidos em caso de falha',
+				'https://www.brentozar.com/blitz/full-recovery-mode-without-log-backups/',
+				NULL
+			),
+			(
+				304, 
+				'Segurança dos Dados',
+				'Extensão dos arquivos dos databases',
+				NULL, 
+				'Essa configuração valida se o SQL Server está utilizando as extensões padrão para arquivo de dados, logs e backups, que são alvos de Ransomwares, como o WannaCry',
+				'Verifica se os databases do SQL Server estão utilizando as extensão padrão para arquivos de dados (MDF) e logs (LDF)',
+				'Utilize extensões personalizadas para os arquivos de dados, logs e backups, dificultando que vírus e ransonwares ataquem os arquivos de database do SQL Server',
+				'https://www.dirceuresende.com/blog/sql-server-como-evitar-e-se-proteger-de-ataques-de-ransomware-como-wannacry-no-seu-servidor-de-banco-de-dados/',
+				NULL
+			),
+			(
+				305, 
+				'Segurança dos Dados',
+				'Extensão dos arquivos de backup',
+				NULL, 
+				'Essa configuração valida se o SQL Server está utilizando as extensões padrão para arquivo de backup do banco, que são alvos de Ransomwares, como o WannaCry',
+				'Verifica se os databases do SQL Server estão utilizando as extensão padrão para arquivos de backup (BAK)',
+				'Utilize extensões personalizadas para os arquivos de backups, dificultando que vírus e ransonwares ataquem os arquivos de backup do SQL Server',
+				'https://www.dirceuresende.com/blog/sql-server-como-evitar-e-se-proteger-de-ataques-de-ransomware-como-wannacry-no-seu-servidor-de-banco-de-dados/',
+				NULL
+			),
+			(
+				306, 
+				'Segurança dos Dados',
+				'Armazenamento dos Backups',
+				NULL, 
+				'Essa configuração valida se o SQL Server está configurado para utilizar outro destino de backup que não seja apenas o disco',
+				'Verifica se os databases do SQL Server estão utilizando soluções alternativas para armazenamento dos arquivos de backup, como nuvem e/ou fita',
+				'Utilize mais de um local para armazenar seus arquivos de backup do SQL Server, pois caso você armazene em um local físico apenas, você pode perder todos os casos em caso de catástrofe',
+				'https://www.dirceuresende.com/blog/sql-server-como-evitar-e-se-proteger-de-ataques-de-ransomware-como-wannacry-no-seu-servidor-de-banco-de-dados/',
+				NULL
+			),
+			(
+				400, 
+				'Permissões',
+				'Permissão CONTROL SERVER', 
+				NULL, 
+				'Permissão elevada que permite controlar e até mesmo, desligar a instância SQL Server',
+				'Verifica usuários com permissão de CONTROL SERVER ou permissões elevadas na instância',
+				'Remova as permissões elevadas desses usuários, caso não sejam DBAs e as permissões sejam realmente necessárias e justificáveis',
+				'https://www.stigviewer.com/stig/microsoft_sql_server_2012_database_instance/2017-04-03/finding/V-41268',
+				NULL
+			),
+			(
+				401, 
+				'Permissões',
+				'Usuários nas roles sysadmin/securityadmin', 
+				NULL, 
+				'Permissão elevada que permite executar comandos como outro login, controlar e até mesmo, desligar a instância SQL Server',
+				'Verifica os usuários que estão nas server roles sysadmin e/ou securityadmin',
+				'Remova esses usuários dessas duas roles caso não sejam DBAs e seja realmente necessário e justificável que esses usuários estejam nessas roles',
+				'https://renatomsiqueira.com/category/security/roles-security/',
+				NULL
+			),
+			(
+				402, 
+				'Permissões',
+				'IMPERSONATE ANY LOGIN', 
+				NULL, 
+				'Permissão que possibilita que um determinado login possa executar comandos como QUALQUER USUÁRIO, inclusive, um usuário sysadmin',
+				'Verifica os usuários que possuem a permissão "IMPERSONATE ANY LOGIN" na instância',
+				'Remova essa permissão desses usuários',
+				'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
+				NULL
+			),
+			(
+				403, 
+				'Permissões',
+				'IMPERSONATE LOGIN', 
+				NULL, 
+				'Permissão que possibilita que um determinado login possa executar comandos como determinados logins da instância. Verificar se os login impersonáveis possuem permissões elevadas',
+				'Verifica os usuários que possuem a permissão "IMPERSONATE LOGIN" na instância',
+				'Remova essa permissão dos usuários, a não ser que exista algum motivo plausível que justifique que um login para executar comandos como outra pessoa',
+				'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
+				NULL
+			),
+			(
+				404, 
+				'Permissões',
+				'IMPERSONATE LOGIN em logins sysadmin/securityadmin', 
+				NULL, 
+				'Permissão que possibilita que um determinado login possa executar comandos como determinados logins da instância em usuários com permissões elevadas (securityadmin/sysadmin/CONTROL SERVER/IMPERSONATE ANY LOGIN)',
+				'Identifica usuários com privilégio de "IMPERSONATE LOGIN" em contas de usuários que são sysadmin/security admin ou possuem privilégios elevados',
+				'Remova essa permissão de IMPERSONATE LOGIN" desses usuários',
+				'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
+				NULL
+			),
+			(
+				405, 
+				'Permissões',
+				'db_owner e db_securityadmin', 
+				NULL, 
+				'Permissão que possibilita que um determinado usuário possa executar qualquer ação em um database específico',
+				'Verifica em todos os databases, quem são os usuários nas roles db_owner e db_securityadmin',
+				'Remova esses usuários dessas database roles e analise como substituí-las, como uma db_ddladmin, por exemplo, ou outra role com ainda menos permissões',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/security/authentication-access/database-level-roles?view=sql-server-2017',
+				NULL
+			),
+			(
+				406, 
+				'Permissões',
+				'IMPERSONATE USER', 
+				NULL, 
+				'Permissão que possibilita que um determinado usuário possa executar ações como se fosse outro usuário',
+				'Verifica em todos os databases quais são os usuários que possuem permissão de "IMPERSONATE USER"',
+				'Remove essa permissão dos usuários caso não haja nenhuma justificativa válida para um usuário executar comandos no database como se fosse outra pessoa',
+				'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
+				NULL
+			),
+			(
+				407, 
+				'Permissões',
+				'Role PUBLIC com permissões', 
+				NULL, 
+				'Validação que garante que a role PUBLIC não tem nenhuma permissão elevada na instância, já que todos os usuários da instância estão nessa role automaticamente. Todas as permissões que essa role possuir, podem ser utilizadas por QUALQUER usuário da instância.',
+				'Verifica em todos os databases e na instância, todas as permissões que a role PUBLIC possui',
+				'Remova todas as permissões da role public',
+				'https://basitaalishan.com/2013/04/04/the-public-role-do-not-use-it-for-database-access/',
+				NULL
+			),
+			(
+				408, 
+				'Permissões',
+				'Usuário GUEST com permissões', 
+				NULL, 
+				'Validação que garante que o usuário GUEST não tem nenhuma permissão na instância. Esse usuário especial permite acesso a qualquer login que não tenha usuário mapeado em um database e por isso, deve ter o privilégio de CONNECT revogado em todos os databases',
+				'Verifica se o usuário GUEST possui alguma permissão na instância',
+				'Remova todas as permissões do usuário GUEST que não seja CONNECT nas databases msdb, master e tempdb',
+				'https://basitaalishan.com/2012/08/28/sql-server-guest-user-still-a-serious-security-threat/',
+				NULL
+			),
+			(
+				409, 
+				'Permissões',
+				'Usuários com permissão UNSAFE/EXTERNAL ASSEMBLY', 
+				NULL, 
+				'Permissão que possibilita que um determinado login possa criar assemblies com o modo de segurança UNSAFE/EXTERNAL ACCESS no ambiente',
+				'Verifica os usuários que possuem permissões a nível de servidor "XU" (UNSAFE ASSEMBLY) e "XA" (EXTERNAL ACCESS ASSEMBLY)',
+				'Remova essas permissões caso esses usuários não precisem fazer deploy de assemblies SQLCLR nesses 2 modos de segurança',
+				'http://www.sqlservercentral.com/articles/Stairway+Series/112888/',
+				NULL
+			),
+			(
+				410, 
+				'Permissões',
+				'Permissões em Extended Procedures (xp_%)', 
+				NULL, 
+				'Permissão que possibilita que um determinado login possa utilizar Extended Procedures na instância, que são comandos que podem ler/gravar informações do registro do Windows, além de várias outras tarefas que podem causar risco para o ambiente',
+				'Verifica os usuários que possuem permissões em objetos de sistema que comecem com xp_%',
+				'Remova essas permissões',
+				'https://www.stigviewer.com/stig/microsoft_sql_server_2005_instance/2015-06-16/finding/V-2473',
+				NULL
+			),
+			(
+				500, 
+				'Vulnerabilidades em Código',
+				'Objetos com IMPERSONATE', 
+				NULL, 
+				'Verificação de procura por objetos (Stored Procedures, Functions, etc) que são executados como outro usuário que não o executor da Procedure',
+				'Verifica no código-fonte de todos os objetos, de todos os databases, os que objetos que são executados com as permissões de um usuário fixo (IMPERSONATE)',
+				'Remova o comando "EXECUTE AS" da declaração desses objetos, caso não seja necessário',
+				'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
+				NULL
+			),
+			(
+				501, 
+				'Vulnerabilidades em Código',
+				'Objetos com Query Dinâmica', 
+				NULL, 
+				'Verificação de procura por objetos (Stored Procedures, Functions, etc) que possuem execução de códigos com query dinâmica, permitindo ataques como SQL Injection em suas aplicações e execução de códigos maliciosos',
+				'Verifica no código-fonte de todos os objetos, de todos os databases, os que objetos que utilizam query dinâmica e que são o provável motivo dessa configuração estar habilitada',
+				'Remova o uso de query dinâmica sempre que possível. Quando não for possível, valide o uso da query dinâmica para garantir que os parâmetros de entrada estão sendo tratados e que não são vulneráveis a ataques de SQL Injection',
+				'https://www.dirceuresende.com/blog/sql-server-como-evitar-sql-injection-pare-de-utilizar-query-dinamica-como-execquery-agora/',
+				NULL
+			),
+			(
+				502, 
+				'Vulnerabilidades em Código',
+				'Objetos utilizando xp_cmdshell', 
+				NULL, 
+				'Verificação de procura por objetos (Stored Procedures, Functions, etc) que possuem execução de códigos utilizando xp_cmdshell, permitindo que um usuário com acesso à essa SP possa executar qualquer comando que o usuário do serviço do SQL Server tenha acesso',
+				'Verifica no código-fonte de todos os objetos, de todos os databases, os que objetos que utilizam xp_cmdshell e que são o provável motivo dessa configuração estar habilitada',
+				'Remova o uso de comandos xp_cmdshell. Ao invés dele, opte por SQLCLR ou pacotes do SSIS',
+				'https://hydrasky.com/network-security/mssql-server-injection-tutorial/',
+				NULL
+			),
+			(
+				503, 
+				'Vulnerabilidades em Código',
+				'Objetos utilizando OLE Automation', 
+				NULL, 
+				'Verificação de procura por objetos (Stored Procedures, Functions, etc) que possuem execução de códigos utilizando OLE Automation Procedures, que são conhecidas por possíveis memory dumps, vazamentos de memória e acessos externos diversos, como escrever arquivos, enviar requisições HTTP, etc.',
+				'Verifica no código-fonte de todos os objetos, de todos os databases, os que objetos que utilizam OLE Automation e que são o provável motivo dessa configuração estar habilitada',
+				'Remova o uso de comandos OLE Automation. Ao invés dele, opte por SQLCLR ou pacotes do SSIS',
+				'https://visualstudiomagazine.com/articles/2005/09/01/when-to-use-sqlclr-and-when-not-to.aspx',
+				NULL
+			),
+			(
+				504, 
+				'Vulnerabilidades em Código',
+				'Procedures Executadas Automaticamente', 
+				NULL, 
+				'Verificação de procura por objetos que são executados automaticamente na inicialização do SQL Server, o que pode ser utilizado por invasores para executar códigos maliciosos toda vez que o serviço for iniciado',
+				'Verifica na DMV sys.procedures de todos os databases, quais procedures possuem a propriedade is_auto_executed = 1',
+				'Remova essas SPs da inicialização do SQL Server utilizando a SP sp_procoption ou dropando e recriando essa SP',
+				'http://blogs.lessthandot.com/index.php/datamgmt/datadesign/list-all-stored-procedures-that/',
+				NULL
+			),
+			(
+				505, 
+				'Vulnerabilidades em Código',
+				'Objetos utilizando GRANT', 
+				NULL, 
+				'Verificação de procura por objetos (Stored Procedures, Functions, etc) que possuem execução de códigos utilizando comandos de GRANT, liberando permissões que podem ser perigosas no ambiente, especialmente se estiver dentro de jobs e rotinas automáticas',
+				'Verifica no código-fonte de todos os objetos, de todos os databases, os que objetos que utilizam comandos de GRANT para liberar permissões',
+				'Remova o uso de comandos GRANT de objetos',
+				NULL,
+				NULL
+			),
+			(
+				506, 
+				'Vulnerabilidades em Código',
+				'Linked Server com usuário Fixo', 
+				NULL, 
+				'Verificação de procura por Linked Servers que utilizam um usuário fixo ao invés do usuário atual',
+				'Verifica nas DMVs sys.servers e sys.linked_logins se existe Linked Server com usuário fixo (uses_self_credential = 0)',
+				'Se possível, troque a autenticação do Linked Server pelo usuário atual da conexão',
+				NULL,
+				NULL
+			),
+			(
+				600, 
+				'Instalação',
+				'Porta Padrão (1433)', 
+				NULL, 
+				'Essa verificação valida se o SQL Server está utilizando a porta padrão (1433) para conexões. Utilizar a porta padrão pode significar um risco de segurança, pois é a primeira porta que qualquer hacker tentaria invadir num possível ataque',
+				'Verifica se o SQL Server está utilizando a porta padrão (1433) para conexões',
+				'Altere a porta do SQL Server para algum porta diferente do padrão, a fim de prover mais uma camada de segurança, dificultando ataques hackers',
+				'https://thomaslarock.com/2016/12/using-non-default-ports-for-sql-server/',
+				NULL
+			),
+			(
+                601, 
+                'Instalação',
+                'SQL Browser executando com apenas 1 instância', 
+                NULL, 
+                'Essa configuração valida se o SQL Browser está sendo executado em ambientes com apenas 1 instância, o que não justifica a execução desse serviço, que serve para fornecer informações das instâncias instaladas no servidor e pode facilitar ataques maliciosos ao expor os nomes das instâncias na rede. Caso essa instância não faça parte de um cluster, analise se o serviço pode ser desativado e se portas customizadas estão sendo utilizadas.',
+                'Verifica se o SQL Browser está sendo executado em ambientes com apenas 1 instância',
+                'Desabilite o SQL Browser caso você esteja utilizando a instância padrão do SQL Server OU se na string de conexão você já utiliza o formato "SERVIDOR\INSTANCIA,PORTA"',
+                'https://www.stigviewer.com/stig/ms_sql_server_2014_instance/2016-11-16/finding/V-70623',
+                NULL
+            ),
+			(
+                602, 
+                'Instalação',
+                'Nome da instância exposta na rede', 
+                NULL, 
+                'Essa configuração valida se o nome da instância está exposta na rede, permitindo que ela seja listada através da opção "Browse.." do SQL Server Management Studio (SSMS)',
+                'Verifica se o parâmetro HideInstance está ativado no SQL Configuration Manager',
+                'Ative o parâmetro "Hide Instance" dessa instância no SQL Configuration Manager, abaixo de "SQL Server Network Configuration" -> "Protocols for <Sua Instancia>"',
+                'https://www.mytechmantra.com/LearnSQLServer/How_to_Hide_an_Instance_of_SQL_Server.html',
+                NULL
+            ),
+			(
+                603, 
+                'Instalação',
+                'Usuário dos Serviços de SQL',
+                NULL, 
+                'Essa configuração valida os usuários utilizados para iniciar os serviços do SQL Server. A recomendação é que sejam utilizados usuários do AD, para que a manutenção desses usuários seja fácil pelo time de Infra. Usuários locais não devem ser utilizados, pois ele possuem permissões elevadas nos diretórios do SO',
+                'Verifica se os usuários utilizados pelos serviços são os usuários padrão do SQL Server',
+                'Altere o usuário dos serviços SQL por usuários do AD, com permissões restritas, caso seu servidor precise de acesso à rede ou a outros servidores. Caso contrário, utilize a conta Local User Account',
+                'https://sqlcommunity.com/best-practices-for-sql-server-service-account/',
+                NULL
+            ),
+			(
+                604, 
+                'Instalação',
+                'SQL Server em Windows com versão antiga ou pessoal', 
+                NULL, 
+                'Essa configuração valida se o SQL Server está instalado em uma versão desatualizada do Windows Server ou se está instalado numa versão pessoal do Windows',
+                'Verifica a versão do Windows para identificar se está utilizando a versão mais recente do Windows Server',
+                'Utilize sempre a versão mais recente do Windows Server para garantir a utilização de novas recursos e correções de segurança',
+                'https://www.microsoft.com/pt-br/cloud-platform/windows-server',
+                NULL
+            ),
+			(
+				605, 
+				'Instalação',
+				'Versão do SQL Server não suportada',
+				NULL, 
+				'Essa configuração valida se o SQL Server possui uma versão que ainda tem suporte e atualizações pela Microsoft',
+				'Verifica a versão do SQL Server ainda é suportada pela Microsoft',
+				'Atualize a versão do SQL Server para receber atualizações de segurança e utilizar novos recursos',
+				'https://www.microsoft.com/pt-br/sql-server/sql-server-downloads',
+				NULL
+			),
+			(
+                606, 
+                'Instalação',
+                'SQL Server desatualizado', 
+                NULL, 
+                'Essa configuração valida se o SQL Server está instalado com a última versão dos Service Pack e Cumulative Updates disponíveis. Estar sempre atualizado é importante para a segurança, pois garante que falhas críticas estejam sempre atualizadas e corrigidas',
+                'Verifica se o build mais recente do SQL Server é o mesmo do build instalado',
+                'Utilize sempre a versão mais recente SQL Server e o mantenha atualizado com a última versão do Service Pack e Cumulative Updates',
+                NULL,
+                NULL
+            ),
+			(
+				607, 
+				'Instalação',
+				'Databases públicas instaladas', 
+				NULL, 
+				'Essa configuração valida se algum dos databases públicos são instalados na instância, servindo como uma possível porta de entrada para ataques, já que sua estrutura é amplamente conhecida',
+				'Verifica se os databases pub, Northwind, AdventureWorks, AdventureWorksLT, AdventureWorksDW, WideWorldImporters ou WideWorldImportersDW estão instalados',
+				'Caso seja uma base de produção, remova esses databases e crie-os em instâncias de testes/desenvolvimento',
+				'https://www.stigviewer.com/stig/ms_sql_server_2014_instance/2017-11-30/finding/V-67817',
+				NULL
+			),
+			(
+				608, 
+				'Instalação',
+				'Protocolos de rede não necessários', 
+				NULL, 
+				'Essa configuração valida quais os protocolos de rede sendo utilizados na instância. Por padrão, o protocolo TCP/IP é o único necessário, enquanto o Shared Memory é indicado para conexões feita no próprio servidor, e o Named Pipes é uma conexão que deve ser utilizada quando ocorrem problemas no TCP/IP',
+				'Verifica se quais os protocolos de rede utilizados na sys.dm_exec_connections',
+				'Desative os protocolos de rede que não são estritamente necessários, como o VIVA, Named Pipes e Shared Memory',
+				'https://blogs.msdn.microsoft.com/securesql/2018/03/the-sql-server-defensive-dozen-part-1-hardening-sql-network-components/',
+				NULL
+			),
+			(
+                609, 
+                'Instalação',
+                'Windows Firewall desativado', 
+                NULL, 
+                'Essa configuração valida se o Firewall do Windows está ativado no servidor',
+                'Verifica no registro do Windows se o Firewall está ativo',
+                'Verifique se existe outro software de Firewall no servidor. Caso não tenha, ative o Firewall do Windows',
+                NULL,
+                NULL
+            )
+		
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+		
+		INSERT INTO #Resultado
+		(
+			Id_Verificacao,
+			Ds_Categoria,
+			Ds_Titulo,
+			Ds_Resultado,
+			Ds_Descricao,
+			Ds_Verificacao,
+			Ds_Sugestao,
+			Ds_Referencia,
+			Ds_Detalhes
+		)
+		VALUES
+			(-8, 'Information', 'Copyright', 'Info', 'stpSecurity_Checklist 1.0', NULL, NULL, NULL, '<Details><Copyright>Stored Procedure developed by Dirceu Resende</Copyright><Website>https://www.dirceuresende.com</Website></Details>'),
+			(-7, 'Information', 'Version', 'Info', @@VERSION, NULL, NULL, NULL, NULL),
+			(-6, 'Information', 'Server info', 'Info', NULL, NULL, NULL, NULL, NULL),
+			(-5, 'Information', 'Startup time', 'Info', NULL, NULL, NULL, NULL, NULL),
+			(-4, 'Information', 'Startup parameters', 'Info', 'Checks SQL Server startup parameters in use by this instance', NULL, NULL, NULL, NULL),
+			(-3, 'Information', 'Instances on the server', 'Info', NULL, NULL, NULL, NULL, NULL),
+			(-2, 'Information', 'Instance is part of a Cluster', 'Info', (CASE WHEN CAST(SERVERPROPERTY('IsClustered') AS VARCHAR(10)) = '1' THEN 'YES' ELSE 'NO' END), NULL, NULL, NULL, NULL),
+			(-1, 'Information', 'Help', 'Info', 'Did you find an issue in your SQL Server instance and need our help to fix it? Get in touch and protect your instance(s) with an Expert team', NULL, NULL, NULL, '<Contacts><Whatsapp>https://bit.ly/dirceuresende</Whatsapp><Telegram>https://t.me/dirceuresende</Telegram><Skype>@dirceuresende</Skype><Email>contato@fabriciolima.net</Email></Contacts>'),
+			(0, '----------------------', '----------------------', '----------------------', '----------------------', NULL, NULL, NULL, NULL),
+			(
+				1, 
+				'Configurations',
+				'Trustworthy', 
+				NULL, 
+				'Configuration that allows you to execute malicious commands inside the database and "take control" of other databases by users who are in db_owner role',
+				'Checks if any database has the "TRUSTWORTHY" property enabled',
+				'Disable the "TRUSTWORTHY" property of all databases. If you use SQLCLR assemblies, use encryption keys instead of "Trustworthy"',
+				'https://docs.microsoft.com/en-us/sql/relational-databases/security/trustworthy-database-property?view=sql-server-2017',
+				NULL
+			),
+			(
+				2, 
+				'Configurations',
+				'Login Failure Audit', 
+				NULL, 
+				'Configuration that allows auditing of login failures in the instance when users miss the password. This setting is recommended to be enabled to be able to identify possible brute-force attacks on the instance', 
+				'Checks whether the instance is writing to the log when the user misses a password',
+				'Enable connection auditing for login failures',
+				'https://www.mssqltips.com/sqlservertip/1735/auditing-failed-logins-in-sql-server/',
+				NULL
+			),
+			(
+				3, 
+				'Configurations',
+				'Windows Authentication Only',
+				NULL, 
+				'Configuration that allows authentication using Windows Integrated Security (more secure), but also SQL Server authentication, using user and password (less secure). This configuration is not exactly a problem because there are legacy applications that require SQL Server authentication, but it is a good practice to avoid this scenario when possible.',
+				'Checks whether the instance accepts connections using SQL Server authentication',
+				'Disable SQL Server login authentication when possible',
+				'https://docs.microsoft.com/en-us/sql/relational-databases/security/choose-an-authentication-mode?view=sql-server-2017',
+				NULL
+			),
+			(
+				4, 
+				'Configurations',
+				'Ad hoc distributed queries', 
+				NULL, 
+				'Configuration that allows to execute commands remotely through OPENROWSET / OPENDATASOURCE. The possible security issue caused by this configuration is allow a compromised server accessing data from another server or even a compromised server sending back information during hacker attacks',
+				'Checks whether the "Ad hoc distributed queries" setting is enabled in sp_configure',
+				'Disable the "Ad hoc distributed queries" configuration if you are not using OPENROWSET / OPENDATASOURCE and neither SQL Server 2005',
+				'https://cuttingedge.it/blogs/steven/pivot/entry.php?id=44',
+				NULL
+			),
+			(
+				5, 
+				'Configurations',
+				'cross db ownership chaining', 
+				NULL, 
+				'A configuration that allows a person to access objects that they do not have access in another database through specific scenarios of "cross db ownership chaining"',
+				'Checks whether the "cross db ownership chaining" setting is active in sp_configure',
+				'Disable the "cross db ownership chaining" setting if you are not using this feature (its not a very common scenario)',
+				'http://www.sqlservercentral.com/articles/Stairway+Series/123545/',
+				NULL
+			),
+			(
+				6, 
+				'Configurations',
+				'SQL Server / Windows Updates', 
+				NULL, 
+				'This validation identifies when the instance startup date is more than 60 days old, indicating that Windows and SQL Server updates are not being applied',
+				'Checks the SQL Server service startup date',
+				'Apply Windows updates as well as SQL Server Service Packs and Cumulative Updates. Many updates are patches, hotfixes and security packages',
+				'https://sqlserverbuilds.blogspot.com/',
+				NULL
+			),
+			(
+				7, 
+				'Configurations',
+				'Databases without page verification', 
+				NULL, 
+				'Configuration that allows SQL Server to write a CHECKSUM on each page as it goes into storage, and then check CHECKSUM again when the data is read from the disk to try to ensure data integrity. This may generate a small CPU overhead, but it is usually worth because it helps detecting corruption',
+				'Checks if any database is using some page validation algorithm other than CHECKSUM (NONE or TORN_PAGE)',
+				'Change the page validation algorithm for all databases to CHECKSUM',
+				'https://www.brentozar.com/blitz/page-verification/',
+				NULL
+			),
+			(
+				8, 
+				'Configurations',
+				'Default trace enabled', 
+				NULL,
+				'Configuration that allows SQL Server to collect some information about the instance using Default Trace, like DDL and DCL commands.',
+				'Checks whether the default SQL Server trace is enabled and running',
+				'Enable the default SQL Server trace to audit events',
+				'https://www.dirceuresende.com/blog/utilizando-o-trace-padrao-do-sql-server-para-auditar-eventos-fn_trace_gettable/',
+				NULL
+			),
+			(
+				9, 
+				'Configurations',
+				'scan for startup procs', 
+				NULL,
+				'A configuration that allows a person to monitor which objects are executed at SQL Server startup and to create malicious code on those objects.',
+				'Checks whether the "scan for startup procs" setting is enabled on the instance using sp_configure',
+				'Disable this setting if you are not performing any validation of what runs during SQL Server startup',
+				'https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/configure-the-scan-for-startup-procs-server-configuration-option?view=sql-server-2017',
+				NULL
+			),
+			(
+				10, 
+				'Configurations',
+				'DatabaseMail XPs', 
+				NULL,
+				'Configuration that allows a person to send email and any information from the databases to others using DatabaseMail. Although this is widely used by systems and alerts, you should verify that this is really necessary in the instance and is being used. If not, disable this option.',
+				'Checks whether the "Database Mail XPs" setting is enabled in sp_configure',
+				'Disable this setting if you do not have any routine that sends emails through the database and cannot be sent using SSIS, for example',
+				'https://www.sqlshack.com/securing-sql-server-surface-area/',
+				NULL
+			),
+			(
+				11, 
+				'Configurations',
+				'SQL Mail XP', 
+				NULL,
+				'A configuration that allows a person to send email and any information from the databases to others using SQL Mail XP (available through SQL Server 2012. After that, it has been replaced by DatabaseMail). Although this is widely used by systems and alerts, you should verify that this is really necessary in the instance and is being used. If not, disable this option.',
+				'Checks whether the "SQL Mail XP" setting is enabled in sp_configure',
+				'Disable this setting if you do not have any routine that sends emails through the database and cannot be sent using SSIS, for example',
+				'https://www.sqlshack.com/securing-sql-server-surface-area/',
+				NULL
+			),
+			(
+				12, 
+				'Configurations',
+				'Remote Admin Connections (DAC)', 
+				NULL,
+				'A configuration that allows administrator users (sysadmin) to log on to the instance even when it is experiencing a problem that prevents logon or when the instance connection limit is reached. This configuration must be enabled so that it can be used in an emergency',
+				'Checks whether the "remote admin connections" setting is enabled in sp_configure',
+				'Enable the "remote admin connections" setting in sp_configure',
+				'https://www.dirceuresende.com/blog/habilitando-e-utilizando-a-conexao-remota-dedicada-para-administrador-dac-no-sql-server/',
+				NULL
+			),
+			(
+				13, 
+				'Configurations',
+				'Remote Access', 
+				NULL,
+				'Configuration that allows users to run Stored Procedures remotely through Linked Server, allowing a hacker to use a compromised instance to perform DDoS attacks on another instance of the network. This parameter is marked as Deprecated and if it is not used by any routine, it should be disabled.',
+				'Checks whether the "remote access" setting is enabled in sp_configure',
+				'Disable the "remote access" setting if you do not use Stored Procedures remotely by using Linked Servers',
+				'https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/configure-the-remote-access-server-configuration-option?view=sql-server-2017',
+				NULL
+			),
+			(
+				14, 
+				'Configurations',
+				'SMO and DMO XPs', 
+				NULL,
+				'Configuration that allows users to code in SQL Server using programming languages like C#, VB, and PowerShell. If it''s not being used, it''s best practice to disable this feature. Note: If you are using SSMS to access SQL Server, you may need to enable this parameter to be able to use SSMS',
+				'Checks whether the "SMO and DMO XPs" setting is enabled in sp_configure',
+				'Disable the "SMO and DMO XPs" setting if you do not use SMO programming',
+				'https://www.stigviewer.com/stig/microsoft_sql_server_2005_instance/2015-04-03/finding/V-15211',
+				NULL
+			),
+			(
+				15, 
+				'Configurations',
+				'Server Trigger Enabled', 
+				NULL, 
+				'This configuration validates whether any server-level triggers are enabled in the instance. This feature can be used by hackers to prevent certain users from logging on or spy users information',
+				'Checks if a server-level trigger is enabled on the instance',
+				'Validate if this server trigger is correct and does not influence any risk to users',
+				NULL,
+				NULL
+			),
+			(
+				16, 
+				'Configurations',
+				'Trace Enabled',
+				NULL, 
+				'This setting validates whether any trace is enabled in the instance. This feature allows you to analyze and capture information from queries executed in the database. This can be used for auditing purposes, but also could be used to capture sensitive data by malicious people',
+				'Checks if any trace (other than the default trace) is enabled on the instance',
+				'Validate if this trace was actually created by the DBA team and does not influence any risk to users',
+				NULL,
+				NULL
+			),
+			(
+				17, 
+				'Configurations',
+				'Extended Events (XE) Enabled',
+				NULL, 
+				'This setting validates whether any extended event (XE) is enabled in the instance. This feature allows you to analyze and capture information from queries executed in the database. This can be used for auditing purposes, but also could be used to capture sensitive data by malicious people',
+				'Checks if any Extended Event (other than SQL Server defaults) is enabled on the instance',
+				'Validate if this XE was actually created by the DBA team and does not influence any risk to users',
+				NULL,
+				NULL
+			),
+			(
+				100, 
+				'User Security',
+				'User/password failure', 
+				NULL, 
+				'Checks how many login attempts failed due to incorrect username and password',
+				'Checks in the SQL Server log for incorrect password login failure events',
+				'Check the source of these connections and if you don''t know them, block the IP in Firewall. A good suggestion is to periodically change the password of SQL users and use strong passwords to prevent intrusions',
+				'https://www.dirceuresende.com/blog/sql-server-como-evitar-ataques-de-forca-bruta-no-seu-banco-de-dados/',
+				NULL
+			),
+			(
+				101, 
+				'User Security',
+				'SA Login', 
+				NULL, 
+				'Default SQL Server user who has the highest possible permission (sysadmin). Must be disabled and renamed to avoid possible hacker attacks',
+				'Checks if login "sa" is enabled',
+				'Disable the login "sa" and change it''s name',
+				'https://www.dirceuresende.com/blog/sql-server-como-desativar-o-login-sa-minimizando-impactos/',
+				NULL
+			),
+			(
+				102, 
+				'User Security',
+				'Orphan Users', 
+				NULL, 
+				'Users who do not have associated logins. Probably some mapping error. These users must be removed or remapped with their login. This type of situation can be used by hackers to try to access databases that these users have privileges. Also, orphaned users raise the complexity of managing logins security, because there are more users than necessary',
+				'Checks users created in databases and does not have associated logins on the instance',
+				'Try again the remapping with sp_change_users_login. If login does not actually exist, try to analyze whether this user can be removed',
+				'https://www.dirceuresende.com/blog/identificando-e-resolvendo-problemas-de-usuarios-orfaos-no-sql-server-com-a-sp_change_users_login/',
+				NULL
+			),
+			(
+				103, 
+				'User Security',
+				'Users without password change policy', 
+				NULL, 
+				'SQL Server logins that don''t have a password policy, which means that the password does not expire and/or has no complexity requirements defined. If the user is used by an application, this alert can be ignored, but if it''s a regular user login, it should be forced to change the password regularly and have complex passwords',
+				'Checks logins that don''t have password expiration options and/or are not compliance with password policies',
+				'Enable the "enforce password policy" and "enforce password expiration" options in the login properties screen',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/security/password-policy?view=sql-server-2017',
+				NULL
+			),
+			(
+				104, 
+				'User Security',
+				'Users with old password', 
+				NULL, 
+				'SQL Server logins that the password doesn''t expire and has not been changed for more than 180 days. Even though if it''s a user used by an application, its password must be changed regularly to avoid possible hacker attacks',
+				'Checks if the SQL Server login password has not been changed for more than 180 days',
+				'Change the password for all SQL Server logins regularly to prevent password leaks',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/security/password-policy?view=sql-server-2017',
+				NULL
+			),
+			(
+				105, 
+				'User Security',
+				'Users with weak passwords', 
+				NULL, 
+				'SQL Server logins that have weak passwords that were easily broken using this Stored Procedure',
+				'It tries to break the SQL logins password using the PWDCOMPARE function and a small base of more common passwords',
+				'Regularly change your SQL logins password and use strong and complex passwords to make brute force attacks more difficult',
+				'https://www.dirceuresende.com/blog/sql-server-como-identificar-senhas-frageis-vazias-ou-iguais-ao-nome-do-usuario/',
+				NULL
+			),
+			(
+				106, 
+				'User Security',
+				'Users without permissions', 
+				NULL, 
+				'Users who do not have any permissions in the database, which means that they were created in the database but shouldn''t have no need anymore. These users can probably be safely deleted from the database to reduce the number of users/logins.',
+				'Identifies database users who are not in any role and do not have any permissions on the database',
+				'Consider whether these users can be removed',
+				NULL,
+				NULL
+			),
+			(
+				107, 
+				'User Security',
+				'AD users without using Kerberos', 
+				NULL, 
+				'Identifies whether the NTLM authentication protocol is being used instead of Kerberos, which is a more secure server-to-server and Double-Hop enable protocol',
+				'Identifies users with AD authentication in sys.dm_exec_connections who are not using Kerberos',
+				'Analyze whether the instance''s SPN is configured correctly in AD records',
+				'https://www.dirceuresende.com/blog/sql-server-autenticacao-ad-kerberos-ntlm-login-failed-for-user-nt-authorityanonymous-logon/',
+				NULL
+			),
+			(
+				108, 
+				'User Security',
+				'VIEW ANY DATABASE Permission', 
+				NULL, 
+				'Identifies if there are any users with VIEW ANY DATABASE permissions, allowing them to see the name of all instance databases',
+				'Analyze in DMV sys.server_permissions if any user with SQL authentication has VIEW ANY DATABASE permission',
+				'Remove the VIEW ANY DATABASE permission from the default public role and all users who do not access SQL Server through SSMS, especially systems. Using the AD Domain\Domain Users group may be a safer alternative to public',
+				'https://www.dirceuresende.com/blog/sql-server-como-ocultar-os-databases-para-usuarios-nao-autorizados/',
+				NULL
+			),
+			(
+				200, 
+				'Programação',
+				'xp_cmdshell', 
+				NULL, 
+				'Configuration that allows to execute malicious commands inside the database using xp_cmdshell',
+				'Verify that the "xp_cmdshell" setting is enabled in sp_configure',
+				'Disable this setting if you are not using it in any routine. If so, try to use another solution, such as SQLCLR or SSIS, to provide this functionality',
+				'http://www.sqlservercentral.com/blogs/brian_kelley/2009/11/13/why-we-recommend-against-xp-cmdshell/',
+				NULL
+			),
+			(
+				201, 
+				'Programming',
+				'Ole Automation', 
+				NULL, 
+				'Configuration that allows to execute malicious commands within the database using OLE Automation procedures',
+				'Verify that the "Ole Automation Procedures" setting is enabled in sp_configure',
+				'Disable this setting if you are not using it in any routine. If so, try to use another solution, such as SQLCLR or SSIS, to provide this functionality',
+				'https://www.stigviewer.com/stig/microsoft_sql_server_2005_instance/2015-04-03/finding/V-2472',
+				NULL
+			),
+			(
+				202, 
+				'Programming',
+				'SQLCLR', 
+				NULL, 
+				'Configuration that allows to execute malicious commands inside the database using SQLCLR procedures',
+				'Checks whether the "clr enabled" setting is enabled in sp_configure',
+				'Disable the "clr enabled" setting if you are not using any SQLCLR libraries',
+				'https://docs.microsoft.com/en-us/sql/relational-databases/clr-integration/security/clr-integration-code-access-security?view=sql-server-2017',
+				NULL
+			),
+			(
+				203, 
+				'Programming',
+				'SQLCLR Unsafe/External Access', 
+				NULL, 
+				'Configuration that allows to execute malicious commands within the database using SQLCLR procedures with Unsafe/External Access permission',
+				'Checks if any assembly, from any database, was created with PERMISSION_SET = UNSAFE or EXTERNAL_ACCESS',
+				'Validate if this library is actually being used and sign the assembly using encryption certificate',
+				'https://docs.microsoft.com/en-us/sql/relational-databases/clr-integration/security/clr-integration-code-access-security?view=sql-server-2017',
+				NULL
+			),
+			(
+				204, 
+				'Programming',
+				'External Scripts (R, Python, or Java)', 
+				NULL, 
+				'Configuration that allows to execute malicious commands inside the database using scripts in R (SQL 2016), Python (SQL 2017) or Java (SQL 2019)',
+				'Checks whether the "external scripts enabled" setting is enabled in sp_configure',
+				'Disable the "external scripts enabled" configuration if you don''t use Python, R, or Java in SQL Server',
+				'https://www.stigviewer.com/stig/ms_sql_server_2016_instance/2018-03-09/finding/V-79347',
+				NULL
+			),
+			(
+				300, 
+				'Data Security',
+				'Transparent Data Encryption (TDE)', 
+				NULL, 
+				'Configuration that allows you to encrypt data files, backups and logs to avoid unauthorized access to data',
+				'Validate databases that do not have TDE enabled',
+				'Enable TDE on SQL Server 2008+ databases to automatically encrypt data files, logs, and backups',
+				'https://www.dirceuresende.com/blog/sql-server-2008-como-criptografar-seus-dados-utilizando-transparent-data-encryption-tde/',
+				NULL
+			),
+			(
+				301, 
+				'Data Security',
+				'Databases without Backup', 
+				NULL, 
+				'Validation that identifies databases with NO BACKUP, which can cause a tragedy if any data becomes corrupted or the database was attacked by a ransomware',
+				'Checks databases that do not have any type of backup in the past 7 days',
+				'Create automatic routines for FULL + DIFF + LOG backup in production environment or FULL daily backup for non-critical environments',
+				'https://edvaldocastro.com/politicabkp/',
+				NULL
+			),
+			(
+				302, 
+				'Data Security',
+				'Backups without Encryption', 
+				NULL, 
+				'Validation that identifies databases without encrypted backups, which allows third parties to be able to read data if they can access the backup files',
+				'Scans for non-encrypted database backups',
+				'Implement TDE on the database or change your backup routine to encrypt backups',
+				'https://www.tiagoneves.net/blog/criando-um-backup-criptografado-no-sql-server/',
+				NULL
+			),
+			(
+				303, 
+				'Data Security',
+				'Recovery Model FULL without LOG Backup', 
+				NULL, 
+				'Validation that identifies databases with recovery model set to FULL, but no log backup routine configured, which is probably an incorrect configuration or lack of backup routine',
+				'Checks databases with FULL recovery model, but no log backup routine',
+				'Implement an automatic log backup routine or change the Recovery Model to SIMPLE if it''s not a critical environment and some data after the last full backup could be lost in case of failure',
+				'https://www.brentozar.com/blitz/full-recovery-mode-without-log-backups/',
+				NULL
+			),
+			(
+				304, 
+				'Data Security',
+				'Database files extension',
+				NULL, 
+				'This setting validates whether SQL Server is using the default extensions for data files, logs, and backups, which are targets of Ransomwares, such WannaCry',
+				'Checks whether SQL Server databases are using the default extension for data files (MDF) and logs (LDF)',
+				'Use custom extensions for data files, logs, and backups, making it difficult for viruses and ransonwares to attack SQL Server database files',
+				'https://www.dirceuresende.com/blog/sql-server-como-evitar-e-se-proteger-de-ataques-de-ransomware-como-wannacry-no-seu-servidor-de-banco-de-dados/',
+				NULL
+			),
+			(
+				305, 
+				'Data Security',
+				'Backup files extension',
+				NULL, 
+				'This setting validates whether SQL Server is using the default extensions for the database backup file, which are targets of Ransomwares, such WannaCry',
+				'Checks whether SQL Server databases are using the default extensions for backup files (BAK)',
+				'Use custom extensions for backups files, making it difficult for viruses and ransonwares to attack SQL Server backup files',
+				'https://www.dirceuresende.com/blog/sql-server-como-evitar-e-se-proteger-de-ataques-de-ransomware-como-wannacry-no-seu-servidor-de-banco-de-dados/',
+				NULL
+			),
+			(
+				306, 
+				'Data Security',
+				'Backup Storage',
+				NULL, 
+				'This setting validates whether SQL Server is configured to use another backup destination, different that just the disk',
+				'Checks whether SQL Server databases are using workarounds for storing backup files such as cloud and/or tape',
+				'Use more than one location to store your SQL Server backup files, because if you store only in one physical location, you can lose all data in a disaster',
+				'https://www.dirceuresende.com/blog/sql-server-como-evitar-e-se-proteger-de-ataques-de-ransomware-como-wannacry-no-seu-servidor-de-banco-de-dados/',
+				NULL
+			),
+			(
+				400, 
+				'Permissions',
+				'CONTROL SERVER Permission', 
+				NULL, 
+				'Elevated permission that allows you to control almost everything and even shut down the SQL Server instance',
+				'Checks users with CONTROL SERVER permission or elevated permissions on the instance',
+				'Remove the elevated permissions of these users if they are not DBAs and the permissions are not really necessary and justifiable',
+				'https://www.stigviewer.com/stig/microsoft_sql_server_2012_database_instance/2017-04-03/finding/V-41268',
+				NULL
+			),
+			(
+				401, 
+				'Permissions',
+				'Users in the sysadmin/securityadmin roles', 
+				NULL, 
+				'Elevated permission that allows you to do anything on the instance, including execute commands like another login, control and even, shut down the instance SQL Server',
+				'Checks the users who are on the sysadmin and/or securityadmin server roles',
+				'Remove these users from these two roles if they are not DBAs and it''s not really necessary and justifiable for these users to be in those roles',
+				'https://renatomsiqueira.com/category/security/roles-security/',
+				NULL
+			),
+			(
+				402, 
+				'Permissions',
+				'IMPERSONATE ANY LOGIN', 
+				NULL, 
+				'Permission that allows a given login to execute commands as ANY USER, including a sysadmin user and become sysadmin himself',
+				'Verifies users who have the "IMPERSONATE ANY LOGIN" permission on the instance',
+				'Remove this permission from these users',
+				'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
+				NULL
+			),
+			(
+				403, 
+				'Permissions',
+				'IMPERSONATE LOGIN', 
+				NULL, 
+				'Permission that allows a given login to execute commands as another login. This can be an issue to audit routines, identifying the wrong user (impersonated login instead of original login).',
+				'Checks users who have the "IMPERSONATE LOGIN" permission on the instance',
+				'Remove this permission from users unless there is some plausible reason why a login should have permission to run commands like another login',
+				'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
+				NULL
+			),
+			(
+				404, 
+				'Permissions',
+				'IMPERSONATE LOGIN on sysadmin/securityadmin logins', 
+				NULL, 
+				'Permission that allows a given login to execute commands as another login with elevated permissions (securityadmin / sysadmin / CONTROL SERVER / IMPERSONATE ANY LOGIN)',
+				'Identifies users with "IMPERSONATE LOGIN" privilege on user accounts that are sysadmin / security admin or have elevated privileges',
+				'Remove this IMPERSONATE LOGIN "permission from these users',
+				'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
+				NULL
+			),
+			(
+				405, 
+				'Permissions',
+				'db_owner and db_securityadmin', 
+				NULL, 
+				'Permission that allows a given user to perform any action in a specific database. If the database has the trustworthy option enabled, a user in db_owner role can become a sysadmin using elevation of privilege attack',
+				'Checks in all databases, who are the users in the roles db_owner and db_securityadmin',
+				'Remove these users from these database roles and analyze how to replace them, such as a db_ddladmin, for example, or another role with even fewer permissions',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/security/authentication-access/database-level-roles?view=sql-server-2017',
+				NULL
+			),
+			(
+				406, 
+				'Permissions',
+				'IMPERSONATE USER', 
+				NULL, 
+				'Permission that allows a given user to perform actions as if it were another user',
+				'Checks in all the databases which are the users that have permission of "IMPERSONATE USER"',
+				'Remove this permission from users if there is no reason for a user to execute commands in the database as if it were someone else',
+				'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
+				NULL
+			),
+			(
+				407, 
+				'Permissions',
+				'PUBLIC role with permissions', 
+				NULL, 
+				'Validation that ensures that the PUBLIC role does not have any high permission on the instance, since all users of the instance are on that role automatically. All permissions that this role has, can be used by ANY user of the instance.',
+				'Checks in all databases and in the instance, all the permissions that the PUBLIC role has',
+				'Remove all permissions from public role',
+				'https://basitaalishan.com/2013/04/04/the-public-role-do-not-use-it-for-database-access/',
+				NULL
+			),
+			(
+				408, 
+				'Permissions',
+				'GUEST user with permissions', 
+				NULL, 
+				'Validation that ensures that the GUEST user has no permission on the instance. This special user allows access to any login that does not have user mapped in a database and therefore, must have the privilege of CONNECT revoked in all databases (except from msdb, master e tempdb)',
+				'Checks whether the GUEST user has any permissions on the instance (except from CONNECT permission in msdb, master and tempdb databases)',
+				'Remove all permissions from the GUEST user other than CONNECT on the msdb, master, and tempdb databases',
+				'https://basitaalishan.com/2012/08/28/sql-server-guest-user-still-a-serious-security-threat/',
+				NULL
+			),
+			(
+				409, 
+				'Permissions',
+				'Users with UNSAFE/EXTERNAL ASSEMBLY permissions', 
+				NULL, 
+				'Permission that allows a particular login to create SQLCLR assemblies with UNSAFE/EXTERNAL ACCESS security mode in the environment',
+				'Verifies users who have server-level permissions "XU" (UNSAFE ASSEMBLY) and "XA" (EXTERNAL ACCESS ASSEMBLY)',
+				'Remove these permissions if these users do not need to deploy SQLCLR assemblies in these 2 security modes',
+				'http://www.sqlservercentral.com/articles/Stairway+Series/112888/',
+				NULL
+			),
+			(
+				410, 
+				'Permissions',
+				'Extended Procedures (xp_%) permissions', 
+				NULL, 
+				'Permission that allows a given login to use Extended Procedures on the instance, which are commands that can read/write information in the Windows registry, as well as various other tasks that may pose a risk to the environment',
+				'Checks users who have permissions on system objects that start with xp_%',
+				'Remove these permissions',
+				'https://www.stigviewer.com/stig/microsoft_sql_server_2005_instance/2015-06-16/finding/V-2473',
+				NULL
+			),
+			(
+				500, 
+				'Code Vulnerabilities',
+				'Objects with IMPERSONATE', 
+				NULL, 
+				'Scans for database objects (Stored Procedures, Functions, etc.) that run as another user other than the caller of the procedure',
+				'Checks in the source code of all objects, in all databases, which objects that are executed with the permissions of a fixed user (IMPERSONATE)',
+				'Remove the "EXECUTE AS" command from the declaration of these objects, if it''s not really necessary',
+				'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
+				NULL
+			),
+			(
+				501, 
+				'Code Vulnerabilities',
+				'Objects with Dynamic Query', 
+				NULL, 
+				'Scans for database objects (Stored Procedures, Functions, etc) that have dynamic query in its code, allowing attacks like SQL Injection in your applications and execution of malicious code',
+				'Checks in the source code of all objects, in all databases, which objects that use dynamic query and could be used by attacks',
+				'Remove the use of dynamic query whenever possible. When this is not possible, validate the use of the dynamic query to ensure that the input parameters are being handled and are not vulnerable to SQL Injection attacks',
+				'https://www.dirceuresende.com/blog/sql-server-como-evitar-sql-injection-pare-de-utilizar-query-dinamica-como-execquery-agora/',
+				NULL
+			),
+			(
+				502, 
+				'Code Vulnerabilities',
+				'Objects using xp_cmdshell', 
+				NULL, 
+				'Scans for database objects (Stored Procedures, Functions, etc.) that have xp_cmdshell in its code, allowing a user with access to this SP to execute any command that the SQL Server service user has access to',
+				'Checks in the source code of all objects, in all databases, which objects that use xp_cmdshell and could be used by attacks',
+				'Remove the use of xp_cmdshell commands. Instead, choose SQLCLR or SSIS packages',
+				'https://hydrasky.com/network-security/mssql-server-injection-tutorial/',
+				NULL
+			),
+			(
+				503, 
+				'Code Vulnerabilities',
+				'Objects using OLE Automation', 
+				NULL, 
+				'Scans for database objects (Stored Procedures, Functions, etc.) that use OLE Automation Procedures, which are known for possible memory dumps, memory leaks and various external accesses, such as writing files, sending HTTP requests, etc.',
+				'Checks in the source code of all objects, all databases, which objects that use OLE Automation and could be used by attacks',
+				'Remove OLE Automation commands from any object. Instead, choose SQLCLR or SSIS packages',
+				'https://visualstudiomagazine.com/articles/2005/09/01/when-to-use-sqlclr-and-when-not-to.aspx',
+				NULL
+			),
+			(
+				504, 
+				'Code Vulnerabilities',
+				'Startup Procedures', 
+				NULL, 
+				'Check for objects that run automatically on SQL Server startup, which can be used by attackers to execute malicious code every time the service starts',
+				'Checks in DMV sys.procedures of all databases, which procedures have the property is_auto_executed = 1',
+				'Remove these SPs from SQL Server startup by using SP sp_procoption or by dropping and recreating this SP',
+				'http://blogs.lessthandot.com/index.php/datamgmt/datadesign/list-all-stored-procedures-that/',
+				NULL
+			),
+			(
+				505, 
+				'Code Vulnerabilities',
+				'Objects using GRANT commands', 
+				NULL, 
+				'Scans for database objects (Stored Procedures, Functions, etc) that have GRANT commands in its code. This can be dangerous in the environment, especially if it''s inside jobs and automatic routines, because it can be part of an attack ou a malicious code or pearson',
+				'Checks in the source code of all objects, in all databases, which objects that use GRANT commands',
+				'Remove the GRANT commands from these objects',
+				NULL,
+				NULL
+			),
+			(
+				506, 
+				'Code Vulnerabilities',
+				'Linked Server with Fixed User', 
+				NULL, 
+				'Validation that checks for Linked Servers that use a fixed user in the connection, instead of the current user',
+				'Checks in the sys.servers and sys.linked_logins DMVs if there is a Linked Server with a fixed user (uses_self_credential = 0)',
+				'If possible, change the authentication of the Linked Server to use the current user of the connection',
+				NULL,
+				NULL
+			),
+			(
+				600, 
+				'Installation',
+				'Default Port (1433)', 
+				NULL, 
+				'This check validates whether SQL Server is using the default port (1433) for connections. Using the default port can pose a security risk as it''s the first port that any attacker would attempt to hack in a possible attack',
+				'Verifies that SQL Server is using the default port (1433) for connections',
+				'Change the SQL Server port to some port other than the default, in order to provide one more layer of security, making it a little more complex for attacks',
+				'https://thomaslarock.com/2016/12/using-non-default-ports-for-sql-server/',
+				NULL
+			),
+			(
+                601, 
+                'Installation',
+                'SQL Browser running with only 1 instance on server', 
+                NULL, 
+                'This setting validates whether SQL Browser is running in a server with only 1 instance, which does not justify running this service. SQL Browser goal is to provide information about instances installed on the server, but to do that, it can expose the names of instances on the network, which makes a possible attack easier. If this instance is not part of a cluster, consider whether the service can be disabled and whether custom ports are being used.',
+                'Checks whether the SQL browser is running in servers with only 1 instance',
+                'Disable SQL Browser if you are using the default instance of SQL Server OR if in the connection string you already use the format "SERVER\INSTANCE, PORT"',
+                'https://www.stigviewer.com/stig/ms_sql_server_2014_instance/2016-11-16/finding/V-70623',
+                NULL
+            ),
+			(
+                602, 
+                'Installation',
+                'Instance name exposed on the network', 
+                NULL, 
+                'This setting validates if the instance name is exposed on the network, allowing it to be listed through the "Browse .." option in SQL Server Management Studio (SSMS)',
+                'Verifies if the "HideInstance" parameter is enabled in SQL Configuration Manager',
+                'Enable the "Hide Instance" parameter for this instance in SQL Configuration Manager under "SQL Server Network Configuration" -> "Protocols for <Your Instance>"',
+                'https://www.mytechmantra.com/LearnSQLServer/How_to_Hide_an_Instance_of_SQL_Server.html',
+                NULL
+            ),
+			(
+                603, 
+                'Installation',
+                'SQL Services User',
+                NULL, 
+                'This setting validates the users used to start the SQL Server services. The recommendation is that AD users are used, so that the maintenance of these users is easier for the Infra team. Local users should not be used because they have elevated permissions on OS directories',
+                'Verifies that the users used by the services are the default SQL Server users',
+                'Change the SQL services user by AD users, with restricted permissions, if your server needs access to the network or other servers. Otherwise, use the Local User Account',
+                'https://sqlcommunity.com/best-practices-for-sql-server-service-account/',
+                NULL
+            ),
+			(
+                604, 
+                'Installation',
+                'SQL Server on Windows with old or personal version', 
+                NULL, 
+                'This setting validates whether SQL Server is installed on an outdated version of Windows Server or whether it is installed on a personal version of Windows',
+                'Checks the version of Windows to identify whether you are using the latest version of Windows Server',
+                'Always use the latest version of Windows Server to ensure the use of new features and security fixes',
+                'https://www.microsoft.com/pt-br/cloud-platform/windows-server',
+                NULL
+            ),
+			(
+				605, 
+				'Installation',
+				'Unsupported version of SQL Server',
+				NULL, 
+				'This setting validates whether SQL Server has a version that is still supported and updated by Microsoft',
+				'Checks the version of SQL Server is still supported by Microsoft',
+				'Upgrade the version of SQL Server to receive security updates and use new features',
+				'https://www.microsoft.com/pt-br/sql-server/sql-server-downloads',
+				NULL
+			),
+			(
+                606, 
+                'Installation',
+                'Outdated SQL Server', 
+                NULL, 
+                'This setting validates whether SQL Server is installed with the latest version of Service Pack and Cumulative Updates available. Keeping up-to-date is important for security as it ensures that critical failures are always up-to-date and fixed',
+                'Checks if the latest SQL Server build is the same as the build installed',
+                'Always use the latest SQL Server version and keep it up to date with the latest Service Pack and Cumulative Updates',
+                NULL,
+                NULL
+            ),
+			(
+				607, 
+				'Installation',
+				'Public Databases Installed', 
+				NULL, 
+				'This setting validates if any of the public databases are installed on the instance, serving as a possible gateway to attacks, as their structure is widely known',
+				'Checks whether the pubs, Northwind, AdventureWorks, AdventureWorksLT, AdventureWorksDW, WideWorldImporters, or WideWorldImportersDW databases are installed',
+				'If it is a production base, remove these databases and create them in test/development instances',
+				'https://www.stigviewer.com/stig/ms_sql_server_2014_instance/2017-11-30/finding/V-67817',
+				NULL
+			),
+			(
+				608, 
+				'Installation',
+				'Network protocols not required', 
+				NULL, 
+				'This setting validates which network protocols are being used in the instance. By default, the TCP/IP and Shared Memory protocols are the only one required and Named Pipes is a connection that should be used when TCP / IP problems occur',
+				'Checks which network protocols are used in sys.dm_exec_connections',
+				'Disable network protocols that are not strictly required, such as VIVA and Named Pipes',
+				'https://blogs.msdn.microsoft.com/securesql/2018/03/the-sql-server-defensive-dozen-part-1-hardening-sql-network-components/',
+				NULL
+			),
+			(
+                609, 
+                'Installation',
+                'Windows Firewall disabled', 
+                NULL, 
+                'This setting validates whether Windows Firewall is enabled on the server.',
+                'Checks the Windows registry if Firewall is active',
+                'Check if there is another Firewall software on the server. If you do not have it, enable Windows Firewall',
+                NULL,
+                NULL
+            )
+		
+	END
+
+
     ---------------------------------------------------------------------------------------------------------------
     -- Informações de inicialização
     ---------------------------------------------------------------------------------------------------------------
 
+	SET @Data = (SELECT sqlserver_start_time FROM sys.dm_os_sys_info)
+    
+    DECLARE @PortaUtilizada INT = (SELECT TOP(1) local_tcp_port FROM sys.dm_exec_connections WHERE local_tcp_port IS NOT NULL ORDER BY session_id)
+
+
+	IF (@language = 'pt')
+	BEGIN
+    
+		UPDATE #Resultado
+		SET Ds_Descricao = 'ComputerNamePhysicalNetBIOS: ' + COALESCE(CAST(SERVERPROPERTY('ComputerNamePhysicalNetBIOS') AS VARCHAR(500)), '') + ' | Nome do servidor: ' + COALESCE(CAST(SERVERPROPERTY('MachineName') AS VARCHAR(500)), '') + ' | Instância: ' + COALESCE(ISNULL(CAST(SERVERPROPERTY('InstanceName') AS VARCHAR(500)), 'MSSQLSERVER'), '') + ' | Porta: ' + COALESCE(CAST(@PortaUtilizada AS VARCHAR(20)), '1433')
+		WHERE Id_Verificacao = -6
+
+		UPDATE #Resultado
+		SET Ds_Descricao = CONVERT(VARCHAR(10), @Data, 103) + ' ' + CONVERT(VARCHAR(10), @Data, 108) + ' (' + CONVERT(VARCHAR(10), DATEDIFF(DAY, @Data, GETDATE())) + ' dias atrás)'
+		WHERE Id_Verificacao = -5
+		
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET Ds_Descricao = 'ComputerNamePhysicalNetBIOS: ' + COALESCE(CAST(SERVERPROPERTY('ComputerNamePhysicalNetBIOS') AS VARCHAR(500)), '') + ' | Server name: ' + COALESCE(CAST(SERVERPROPERTY('MachineName') AS VARCHAR(500)), '') + ' | Instance name: ' + COALESCE(ISNULL(CAST(SERVERPROPERTY('InstanceName') AS VARCHAR(500)), 'MSSQLSERVER'), '') + ' | Port: ' + COALESCE(CAST(@PortaUtilizada AS VARCHAR(20)), '1433')
+		WHERE Id_Verificacao = -6
+
+		UPDATE #Resultado
+		SET Ds_Descricao = CONVERT(VARCHAR(10), @Data, 103) + ' ' + CONVERT(VARCHAR(10), @Data, 108) + ' (' + CONVERT(VARCHAR(10), DATEDIFF(DAY, @Data, GETDATE())) + ' days ago)'
+		WHERE Id_Verificacao = -5
+		
+	END
+
+
+
     IF (@IsAmazonRDS = 0)
     BEGIN
-
 
         DECLARE
             @RegHive VARCHAR(50),
@@ -89,7 +1641,7 @@ BEGIN
         SET @Resultado = (
             SELECT *
             FROM @SQLArgs
-            FOR XML PATH, ROOT('Startup_Parameters')
+            FOR XML PATH, ROOT('Parametros_Inicializacao')
         )
 
 
@@ -118,64 +1670,41 @@ BEGIN
             @GetInstances A
 
 
-    END
 
-
-    SET @Data = (SELECT sqlserver_start_time FROM sys.dm_os_sys_info)
+		IF (@language = 'pt')
+		BEGIN
     
-    DECLARE @PortaUtilizada INT = (SELECT TOP(1) local_tcp_port FROM sys.dm_exec_connections WHERE local_tcp_port IS NOT NULL ORDER BY session_id)
+			UPDATE #Resultado
+			SET Ds_Descricao = CAST(@Qt_Instancias AS VARCHAR(10)) + ' instâncias instaladas: ' + @Instancias
+			WHERE Id_Verificacao = -3
 
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Detalhes
-    )
-    VALUES
-        (-8, 'Avisos', 'Copyright', 'Informativo', 'stpChecklist_Seguranca 1.0', '<Detalhes><Copyright>Stored Procedure desenvolvida por Dirceu Resende</Copyright><Website>https://www.dirceuresende.com</Website></Detalhes>'),
-        (-7, 'Avisos', 'Versão', 'Informativo', @@VERSION, NULL),
-        (-6, 'Avisos', 'Informações da máquina', 'Informativo', 'ComputerNamePhysicalNetBIOS: ' + COALESCE(CAST(SERVERPROPERTY('ComputerNamePhysicalNetBIOS') AS VARCHAR(500)), '') + ' | Nome do servidor: ' + COALESCE(CAST(SERVERPROPERTY('MachineName') AS VARCHAR(500)), '') + ' | Instância: ' + COALESCE(ISNULL(CAST(SERVERPROPERTY('InstanceName') AS VARCHAR(500)), 'MSSQLSERVER'), '') + ' | Porta: ' + COALESCE(CAST(@PortaUtilizada AS VARCHAR(20)), '1433'), NULL),
-        (-5, 'Avisos', 'Data de Inicialização', 'Informativo', CONVERT(VARCHAR(10), @Data, 103) + ' ' + CONVERT(VARCHAR(10), @Data, 108) + ' (' + CONVERT(VARCHAR(10), DATEDIFF(DAY, @Data, GETDATE())) + ' dias atrás)', NULL)
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET Ds_Descricao = CAST(@Qt_Instancias AS VARCHAR(10)) + ' SQL Server instances on this server: ' + @Instancias
+			WHERE Id_Verificacao = -3
+			
+		END
 
 
+		UPDATE #Resultado
+		SET Ds_Detalhes = (CASE 
+			WHEN @language = 'en' THEN REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Parametros_Inicializacao>', 'Startup_Parameters>')
+			ELSE @Resultado
+		END)
+		WHERE 
+			Id_Verificacao = -4
 
-    IF (@IsAmazonRDS = 0)
-    BEGIN
-
-        INSERT INTO #Resultado
-        (
-            Id_Verificacao,
-            Ds_Categoria,
-            Ds_Titulo,
-            Ds_Resultado,
-            Ds_Descricao,
-            Ds_Detalhes
-        )
-        VALUES
-            (-4, 'Avisos', 'Parâmetros de Inicialização', 'Informativo', 'Verifica os parâmetros de inicialização utilizados pela instância do SQL Server', @Resultado),
-            (-3, 'Avisos', 'Instâncias no servidor', 'Informativo', CAST(@Qt_Instancias AS VARCHAR(10)) + ' instâncias instaladas: ' + @Instancias, NULL)
 
     END
+	ELSE BEGIN
+		
+		DELETE FROM #Resultado
+		WHERE Id_Verificacao IN (-3, -4)
 
-
-
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Detalhes
-    )
-    VALUES
-        (-2, 'Avisos', 'Instâncias rodando em CLUSTER', 'Informativo', (CASE WHEN CAST(SERVERPROPERTY('IsClustered') AS VARCHAR(10)) = '1' THEN 'SIM' ELSE 'NÃO' END), NULL),
-        (-1, 'Avisos', 'Ajuda', 'Informativo', 'Encontrou algum problema e precisa de ajuda? Solicite agora uma consultoria e protega seu ambiente com uma equipe de especialistas', '<Contatos><Whatsapp>https://bit.ly/dirceuresende</Whatsapp><Telegram>https://t.me/dirceuresende</Telegram><Skype>@dirceuresende</Skype><Email>contato@fabriciolima.net</Email></Contatos>'),
-        (0, '----------------------', '----------------------', '----------------------', '----------------------', NULL)
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -195,31 +1724,29 @@ BEGIN
         FOR XML PATH, ROOT('Databases')
     )
     
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            1, 
-            'Configuração',
-            'Trustworthy', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite executar comandos maliciosos dentro do database e "tomar o controle" de outros databases por usuários que estão na role db_owner',
-            'Verifica se algum database possui a propriedade "TRUSTWORTHY" habilitado',
-            'Desative a propriedade "TRUSTWORTHY" de todos os databases. Caso utilize para assemblies SQLCLR, utilize chaves de criptografia',
-            'https://www.dirceuresende.com/blog/sql-server-entendendo-os-riscos-da-propriedade-trustworthy-habilitada-em-um-database/',
-            @Resultado
-        )
+	
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 1
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 1
+		
+	END
 
     
     ---------------------------------------------------------------------------------------------------------------
@@ -240,43 +1767,41 @@ BEGIN
     IF (@AuditLevel < 2)
     BEGIN
 
-        SET @Resultado = (
-            SELECT 
-                (CASE @AuditLevel
-                    WHEN 0 THEN '0 - Nenhum'
-                    WHEN 1 THEN '1 - Apenas logins com sucesso'
-                    ELSE NULL
-                END) AS Nivel_Auditoria_Login
-            FOR XML PATH, ROOT('Nivel_Auditoria_Login')
-        )
+		SET @Resultado = (
+			SELECT 
+				(CASE @AuditLevel
+					WHEN 0 THEN '0 - Nenhum'
+					WHEN 1 THEN '1 - Apenas logins com sucesso'
+					ELSE NULL
+				END) AS Nivel_Auditoria_Login
+			FOR XML PATH, ROOT('Nivel_Auditoria')
+		)
 
     END
     
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            2, 
-            'Configuração',
-            'Auditoria de Falhas de Login', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite auditar falhas de login na instância quando usuários erram a senha. Essa configuração é recomendável estar ativada para conseguir identificar possíveis ataques de força-bruta na instância', 
-            'Verifica se a instância está gravando no log quando o usuário erra uma senha',
-            'Ativar a auditoria de conexão para falhas de login',
-            'https://www.mssqltips.com/sqlservertip/1735/auditing-failed-logins-in-sql-server/',
-            @Resultado
-        )
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 2
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Nivel_Auditoria>', 'AuditLevel>'), '0 - Nenhum', '0 - None'), '1 - Apenas logins com sucesso', '1 - Successful logins only')
+		WHERE 
+			Id_Verificacao = 2
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -303,30 +1828,28 @@ BEGIN
     END
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            3, 
-            'Configuração',
-            'Autenticação Windows Apenas',
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite a autenticação utilizando Segurança Integrada do Windows (mais seguro), mas também autenticação SQL Server, utiliando usuário e senha (menos seguro). Essa configuração não é exatamente um problema, pois existem aplicações legadas que requerem autenticação SQL Server, mas é uma boa prática evitar esse cenário, quando possível.',
-            'Verifica se a instância está permitindo conexões de logins SQL Server',
-            'Desativar a autenticação de logins SQL Server, quando possível',
-            'https://docs.microsoft.com/pt-br/sql/relational-databases/security/choose-an-authentication-mode?view=sql-server-2017',
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 3
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Nivel_Auditoria_Login>', 'Login_Audit_Level>'), '0 - Autenticação Windows e SQL Server', '0 - Windows and SQL Server Authentication')
+		WHERE 
+			Id_Verificacao = 3
+		
+	END
 
         
     ---------------------------------------------------------------------------------------------------------------
@@ -347,30 +1870,28 @@ BEGIN
     )
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            4, 
-            'Configuração',
-            'Ad hoc distributed queries', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite executar possíveis comandos remotamente através de OPENROWSET/OPENDATASOURCE. Os possíveis problemas de segurança causados por essa configuração é a possibilidade do provider conter algum bug de segurança, possibilidade de um servidor comprometido acessar dados de um servidor ainda não comprometido ou mesmo um servidor comprometido enviar de volta informações durante ataques hackers',
-            'Verifica se a configuração "Ad hoc distributed queries" está habilitada no sp_configure',
-            'Desativar a configuração "Ad hoc distributed queries" caso não esteja utilizando OPENROWSET/OPENDATASOURCE e nem o SQL Server 2005',
-            'https://cuttingedge.it/blogs/steven/pivot/entry.php?id=44',
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 4
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 4
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -391,30 +1912,28 @@ BEGIN
     )
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            5, 
-            'Configuração',
-            'cross db ownership chaining', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite que uma pessoa acesse objetos que ela não tenha acesso em outro database através de cenários específicos de "cross db ownership chaining"',
-            'Verifica se a configuração "cross db ownership chaining" está ativa no sp_configure',
-            'Desative a configuração "cross db ownership chaining" caso não esteja utilizando esse recurso (sua utilização não é muito comum)',
-            'http://www.sqlservercentral.com/articles/Stairway+Series/123545/',
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 5
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 5
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -438,32 +1957,30 @@ BEGIN
     END
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            6, 
-            'Configuração',
-            'Atualizações do SQL Server/Windows', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado (pelo menos ' + CONVERT(VARCHAR(10), @Quantidade) + ' dias sem atualização)' END), 
-            'Essa validação identifica quando a instância está há mais de 60 dias sem ser reiniciada, indicando que atualizações de Windows e do SQL Server não estão sendo aplicados',
-            'Verifica a quantos dias o serviço do SQL Server está online',
-            'Aplique atualizações de Windows e também Service Packs e Cumulative Updates do SQL Server. Muitas atualizações são correções e pacotes de segurança',
-            'https://sqlserverbuilds.blogspot.com/',
-            @Resultado
-        )
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado (pelo menos ' + CONVERT(VARCHAR(10), @Quantidade) + ' dias sem atualização)' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 6
 
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
 
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found (at least ' + CONVERT(VARCHAR(10), @Quantidade) + ' days without updates)' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Inicialização>', 'Startup>')
+		WHERE 
+			Id_Verificacao = 6
+		
+	END
+
+    
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica databases sem verificação de página
     ---------------------------------------------------------------------------------------------------------------
@@ -490,33 +2007,31 @@ BEGIN
         FOR XML PATH(''), ROOT('Configuracao'), TYPE
     )
     
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 7
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 7
+		
+	END
+
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            7, 
-            'Configuração',
-            'Databases sem verificação de página', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite que o SQL Server grave um CHECKSUM em cada página à medida que vai para o armazenamento e, em seguida, verifique o CHECKSUM novamente quando os dados são lidos do disco para tentar garantir a integridade dos dados. Isso pode gerar uma pequena sobrecarga de CPU, mas normalmente vale a pena recuperar-se da corrupção',
-            'Verifica se algum database está utilizando algum algoritmo de validação de página diferente do CHECKSUM (NONE ou TORN_PAGE)',
-            'Altere o algoritmo de validação de página de todos os databases para CHECKSUM',
-            'https://www.brentozar.com/blitz/page-verification/',
-            @Resultado
-        )
-
-
 
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se o default trace está ativado
@@ -534,32 +2049,30 @@ BEGIN
             AND [status] = 0
         FOR XML PATH, ROOT('Configuracao')
     )
-    
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            8, 
-            'Configuração',
-            'Default trace habilitado', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite que o SQL Server colete algumas informações da instância pelo Default Trace, como alguns comandos de DDL, DCL, etc.',
-            'Verifica se o trace padrão do SQL Server está habilitado e executando',
-            'Habilite o trace padrão do SQL Server para auditar eventos',
-            'https://www.dirceuresende.com/blog/utilizando-o-trace-padrao-do-sql-server-para-auditar-eventos-fn_trace_gettable/',
-            @Resultado
-        )
+
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 8
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 8
+		
+	END
 
 
 
@@ -581,30 +2094,28 @@ BEGIN
     )
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            9, 
-            'Configuração',
-            'scan for startup procs', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite que uma pessoa monitore quais objetos são executados na inicialização do SQL Server e crie códigos maliciosos nesses objetos.',
-            'Verifica se a configuração "scan for startup procs" está habilitada na instância através da sp_configure',
-            'Desative essa configuração caso não esteja realizando nenhuma validação do que é executado durante a inicialização do SQL Server',
-            'https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/configure-the-scan-for-startup-procs-server-configuration-option?view=sql-server-2017',
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 9
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 9
+		
+	END
 
 
 
@@ -626,30 +2137,28 @@ BEGIN
     )
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            10, 
-            'Configuração',
-            'DatabaseMail XPs', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite que uma pessoa envie e-mails e informações do banco para outras pessoas utilizando o DatabaseMail. Embora isso seja bastante utilizado por sistemas e alertas, você deve verificar se isso realmente é necessário na instância e se está sendo utilizado. Caso não esteja, desative essa opção.',
-            'Verifica se a configuração "Database Mail XPs" está habilitada na sp_configure',
-            'Desative essa configuração caso não tenha nenhuma rotina que envie e-mails pelo banco de dados e que não possa ser enviado pelo SSIS, por exemplo',
-            'https://www.sqlshack.com/securing-sql-server-surface-area/',
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 10
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 10
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -670,30 +2179,28 @@ BEGIN
     )
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            11, 
-            'Configuração',
-            'SQL Mail XP', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite que uma pessoa envie e-mails e informações do banco para outras pessoas utilizando o SQL Mail XP (Disponível até o SQL Server 2012. Após isso, foi substituído pelo DatabaseMail). Embora isso seja bastante utilizado por sistemas e alertas, você deve verificar se isso realmente é necessário na instância e se está sendo utilizado. Caso não esteja, desative essa opção.',
-            'Verifica se a configuração "SQL Mail XP" está habilitada na sp_configure',
-            'Desative essa configuração caso não tenha nenhuma rotina que envie e-mails pelo banco de dados e que não possa ser enviado pelo SSIS, por exemplo',
-            'https://www.sqlshack.com/securing-sql-server-surface-area/',
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 11
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 11
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -714,31 +2221,28 @@ BEGIN
     )
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            12, 
-            'Configuração',
-            'Remote Admin Connections (DAC)', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite que usuários administradores (sysadmin) possam logar na instância mesmo quando ela está com algum problema que impede o logon ou quando o limite de conexões da instância é atingido. Essa configuração deve ser habilitada para que seja possível utilizá-la em casos de emergência.',
-            'Verifica se a configuração "remote admin connections" está habilitada na sp_configure',
-            'Habilite a configuração "remote admin connections" na sp_configure',
-            'https://www.dirceuresende.com/blog/habilitando-e-utilizando-a-conexao-remota-dedicada-para-administrador-dac-no-sql-server/',
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 12
 
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 12
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -759,30 +2263,28 @@ BEGIN
     )
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            13, 
-            'Configuração',
-            'Remote Access', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite que usuários executem Stored Procedures remotamente através de Linked Server, permitindo que um hacker possa utilizar uma instância comprometida para realizar ataques de DDoS em outra instância da rede. Esse parâmetro está marcado como Deprecated e caso não seja utilizado por nenhuma rotina, deve ser desativado.',
-            'Verifica se a configuração "remote access" está habilitada na sp_configure',
-            'Desabilite a configuração "remote access" caso você não utilize Stored Procedures remotamente, utilizando Linked Servers',
-            'https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/configure-the-remote-access-server-configuration-option?view=sql-server-2017',
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 13
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 13
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -798,35 +2300,33 @@ BEGIN
             sys.configurations WITH(NOLOCK) 
         WHERE 
             [name] = 'SMO and DMO XPs'
-            AND value_in_use = 1
+            AND value_in_use = 0
         FOR XML PATH, ROOT('Configuracao')
     )
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            14, 
-            'Configuração',
-            'SMO and DMO XPs', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite que usuários programem no SQL Server utilizando linguagens de programação como C#, VB e PowerShell. Caso não esteja sendo utilizado, a boa prática é desativar esse recurso. Obs: Caso esteja utilizando o SSMS 17 para acessar o SQL Server 2005, pode ser necessário habilitar esse parâmetro para conseguir utilizar o SSMS',
-            'Verifica se a configuração "SMO and DMO XPs" está habilitada na sp_configure',
-            'Desative a configuração "SMO and DMO XPs" caso não utilize programação SMO',
-            'https://www.stigviewer.com/stig/microsoft_sql_server_2005_instance/2015-04-03/finding/V-15211',
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 14
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 14
+		
+	END
 
 
     
@@ -852,30 +2352,28 @@ BEGIN
     )
 
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            15, 
-            'Configuração',
-            'Server Trigger Habilitada', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Essa configuração valida se alguma trigger a nível de servidor está habilitada no ambiente. Esse recurso pode ser utilizado por hackers para impedir o logon de determinados usuários',
-            'Verifica se alguma trigger a nível de servidor está habilitada na instância',
-            'Valide se essa server trigger está correta e não influi em nenhum risco para os usuários',
-            NULL,
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 15
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_Server_Triggers>', 'Server_Triggers>')
+		WHERE 
+			Id_Verificacao = 15
+		
+	END
 
         
     ---------------------------------------------------------------------------------------------------------------
@@ -914,30 +2412,28 @@ BEGIN
     )
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            16, 
-            'Configuração',
-            'Trace Habilitado',
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Essa configuração valida se algum trace está habilitado no ambiente. Esse recurso permite analisar e capturar informações das consultas executadas no banco. Da mesma forma que isso pode ser utilizado para fins de auditoria, pode também ser utilizado para capturar dados sensíveis por pessoas mal intencionadas',
-            'Verifica se algum trace (que não o trace default) está habilitado na instância',
-            'Valide se esse trace realmente foi criado pelo time de DBA e não influi em nenhum risco para os usuários',
-            NULL,
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 16
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_Trace_Habilitado>', 'Trace_Enabled>')
+		WHERE 
+			Id_Verificacao = 16
+		
+	END
 
         
 
@@ -969,49 +2465,40 @@ BEGIN
     )
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            17, 
-            'Configuração',
-            'Extended Events (XE) Habilitado',
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Essa configuração valida se algum Extended Event (XE) está habilitado no ambiente. Esse recurso permite analisar e capturar informações das consultas executadas no banco. Da mesma forma que isso pode ser utilizado para fins de auditoria, pode também ser utilizado para capturar dados sensíveis por pessoas mal intencionadas',
-            'Verifica se algum Extended Event (que não os padrões do SQL Server) está habilitado na instância',
-            'Valide se esse XE realmente foi criado pelo time de DBA e não influi em nenhum risco para os usuários',
-            NULL,
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 17
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_XE_Habilitado>', 'Extended_Event_Enabled>')
+		WHERE 
+			Id_Verificacao = 17
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se existem erros no log de falha de login
     ---------------------------------------------------------------------------------------------------------------
     
-    SET @Resultado = NULL
-    
     DECLARE @Login_Failed TABLE ( [LogDate] datetime, [ProcessInfo] nvarchar(12), [Text] nvarchar(3999) )
-        
     
-    IF (@IsAmazonRDS = 0)
-    BEGIN
-    
-        INSERT INTO @Login_Failed
-        EXEC master.dbo.sp_readerrorlog 0, 1, 'Password did not match that for the login provided' 
-    
-    END
-    
+    INSERT INTO @Login_Failed
+    EXEC master.dbo.sp_readerrorlog 0, 1, 'Password did not match that for the login provided' 
+
+    SET @Resultado = NULL
     
     SET @Resultado = (
         SELECT 
@@ -1027,33 +2514,30 @@ BEGIN
 
     SELECT @Quantidade = COUNT(*) FROM @Login_Failed
 
-    
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-        Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            100, 
-            'Segurança de Usuários',
-            'Falha de usuário/senha', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado (' + CAST(@Quantidade AS VARCHAR(10)) + ' tentativas)' END), 
-            'Verifica quantas tentativas de login tiveram falha por usuário e senha incorretos',
-            'Verifica no log do SQL Server os eventos de falha de login por senha incorreta',
-            'Verifique a origem dessas conexões e caso não as conheça, bloqueie o IP no Firewall. Uma boa sugestão é alterar periodicamente a senha dos usuários SQL e utilizar senhas fortes para evitar invasões',
-            'https://www.hackingarticles.in/4-ways-to-hack-ms-sql-login-password/',
-            @Resultado
-        )
-    
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado (' + CAST(@Quantidade AS VARCHAR(10)) + ' tentativas)' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 100
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found (' + CAST(@Quantidade AS VARCHAR(10)) + ' attempts)' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Erro_Login_Senha_Incorreta>', 'Wrong_Username_Password>')
+		WHERE 
+			Id_Verificacao = 100
+		
+	END
+
 
     ---------------------------------------------------------------------------------------------------------------
     -- Usuário "SA" habilitado
@@ -1078,30 +2562,30 @@ BEGIN
         FOR XML PATH, ROOT('Usuario_SA_Habilitado')
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            101, 
-            'Segurança de Usuários',
-            'Usuário SA', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Usuário padrão do SQL Server que possui a permissão mais elevada possível (sysadmin). Deve ser desativado e renomeado para evitar possíveis ataques hackers',
-            'Verifica se o usuário "sa" está habilitado',
-            'Desative o usuário "sa" e altere o nome desse usuário',
-            'https://www.mssqltips.com/sqlservertip/2221/different-ways-to-secure-the-sql-server-sa-login/',
-            @Resultado
-        )
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 101
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Erro_Login_Senha_Incorreta>', 'SA_User_Enabled>')
+		WHERE 
+			Id_Verificacao = 101
+		
+	END
+
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -1153,31 +2637,29 @@ WHERE
         FOR XML PATH(''), ROOT('Usuarios_Orfaos'), TYPE
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            102, 
-            'Segurança de Usuários',
-            'Usuários Órfãos', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado (' + CAST(@Quantidade AS VARCHAR(10)) + ' usuários)' END), 
-            'Usuários que não possuem logins associados. Provavelmente algum erro de mapeamento. Esses usuários devem ser removidos ou remapeados com o respectivo login. Esse tipo de situação pode ser utilizada por hackers para tentar acessar bases que esses usuários possuem permissão',
-            'Verifica usuários criados nos databases e que não possuem logins associados na instância',
-            'Tente refazer o mapeamento com a sp_change_users_login. Caso o login realmente não exista, tenta analisar se esse usuário pode ser removido',
-            'https://www.dirceuresende.com/blog/identificando-e-resolvendo-problemas-de-usuarios-orfaos-no-sql-server-com-a-sp_change_users_login/',
-            @Resultado
-        )
 
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado (' + CAST(@Quantidade AS VARCHAR(10)) + ' usuários)' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 102
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found (' + CAST(@Quantidade AS VARCHAR(10)) + ' users)' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Orfaos>', 'Orphaned_Users>')
+		WHERE 
+			Id_Verificacao = 102
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -1229,30 +2711,28 @@ WHERE
     )
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            103, 
-            'Segurança de Usuários',
-            'Usuários sem políticas de troca de senha', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Logins SQL Server que não possuem política de senha, ou seja, a senha não expira e/ou não tem exigências de complexidade definidas. Caso seja um usuário de aplicação, esse alerta pode ser ignorado, mas caso seja login de um usuário, ele deve ser forçado a trocar a senha regularmente e ter senhas difíceis de serem quebradas',
-            'Verifica os logins que não possuem as opções de expiração de senha e/ou conformidade com as políticas de senha',
-            'Habilite as opções de "enforce password policy" e "enforce password expiration" na tela de propriedades do login',
-            'https://docs.microsoft.com/pt-br/sql/relational-databases/security/password-policy?view=sql-server-2017',
-            @Resultado
-        )
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 103
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Sem_Politica_de_Senha>', 'Users_Without_Password_Policy>'), '<Usuario ', '<User ')
+		WHERE 
+			Id_Verificacao = 103
+		
+	END
 
 
     
@@ -1280,30 +2760,29 @@ WHERE
     )
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            104, 
-            'Segurança de Usuários',
-            'Usuários com senha antiga', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Logins SQL Server que a senha não expira e não é alterada há mais de 180 dias. Mesmo sendo um usuário de aplicação, a senha do usuário deve ser alterada regularmente para evitar possíveis ataques hackers',
-            'Verifica se a senha do login SQL Server não é alterada há mais de 180 dias',
-            'Altere a senha de todos os logins SQL Server regularmente para evitar vazamentos de senhas',
-            'https://docs.microsoft.com/pt-br/sql/relational-databases/security/password-policy?view=sql-server-2017',
-            @Resultado
-        )
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 104
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Senha_Antiga>', 'Users_Old_Password>'), '<Usuario ', '<User ')
+		WHERE 
+			Id_Verificacao = 104
+		
+	END
+
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -1454,10 +2933,10 @@ WHERE
 
     SET @Resultado = (
         SELECT DISTINCT
-            [Login] AS 'Usuario/@Login',
-            Senha AS 'Usuario/@Senha',
-            is_disabled AS 'Usuario/@is_disabled',
-            is_policy_checked AS 'Usuario/@is_policy_checked'
+            [Login] AS 'Login/@name',
+            Senha AS 'Login/@password',
+            is_disabled AS 'Login/@is_disabled',
+            is_policy_checked AS 'Login/@is_policy_checked'
         FROM
             @Usuarios_Senha_Fraca
         ORDER BY
@@ -1466,30 +2945,28 @@ WHERE
     )
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            105, 
-            'Segurança de Usuários',
-            'Usuários com senha fraca', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Logins SQL Server que possuem senhas fracas e que foram facilmente quebradas utilizando essa Stored Procedure',
-            'Tenta quebrar a senha dos logins SQL utilizando a função PWDCOMPARE e uma pequena base de senhas mais comuns',
-            'Altere regularmente a senha dos logins SQL e utilize senhas fortes e complexas para dificultar ataques de força bruta',
-            'https://www.dirceuresende.com/blog/sql-server-como-identificar-senhas-frageis-vazias-ou-iguais-ao-nome-do-usuario/',
-            @Resultado
-        )
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 105
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Senha_Fraca>', 'Users_Weak_Password>')
+		WHERE 
+			Id_Verificacao = 105
+		
+	END
 
 
 	---------------------------------------------------------------------------------------------------------------
@@ -1542,32 +3019,30 @@ WHERE
         FOR XML PATH(''), ROOT('Usuarios_Sem_Permissao'), TYPE
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            106, 
-            'Segurança de Usuários',
-            'Usuários sem Permissão', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado (' + CAST(@Quantidade AS VARCHAR(10)) + ' usuários)' END), 
-            'Usuários que não possuem nenhuma permissão no database, ou seja, devem estar criados no banco sem nenhuma necessidade. Esses usuários provavelmente podem ser excluídos do database com segurança.',
-            'Identifica usuários de databases que não estão em nenhuma role e nem possuem nenhuma permissão no banco',
-            'Analise se esses usuários podem ser removidos',
-            NULL,
-            @Resultado
-        )
 
-        
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado (' + CAST(@Quantidade AS VARCHAR(10)) + ' usuários)' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 106
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found (' + CAST(@Quantidade AS VARCHAR(10)) + ' users)' END),
+			Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Sem_Permissao>', 'Users_Without_Permissions>'), '<Usuario ', '<User ')
+		WHERE 
+			Id_Verificacao = 106
+		
+	END
+    
 
     ---------------------------------------------------------------------------------------------------------------
     -- Usuários utilizando autenticação AD sem utilizar o protocolo de autenticação Kerberos
@@ -1618,30 +3093,28 @@ WHERE
     )
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            107, 
-            'Segurança de Usuários',
-            'Usuários AD sem utilizar Kerberos', 
-            (CASE WHEN ISNULL(@Qt_Kerberos, 0) >= ISNULL(@Qt_NTLM, 0) THEN 'OK' ELSE 'Possível problema encontrado (' + CAST(ISNULL(@Qt_NTLM, 0) AS VARCHAR(10)) + ' conexões)' END), 
-            'Identifica se o protocolo de autenticação Kerberos está sendo utilizado ao invés do NTLM, que é um protocolo mais seguro de comunicação entre servidores e permite do Double-Hop',
-            'Identifica usuários com autenticação AD na sys.dm_exec_connections que não estão utilizando o Kerberos',
-            'Analise se o SPN da instância está configurado corretamente nos registros do AD',
-            'https://www.dirceuresende.com/blog/sql-server-autenticacao-ad-kerberos-ntlm-login-failed-for-user-nt-authorityanonymous-logon/',
-            @Resultado
-        )
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN ISNULL(@Qt_Kerberos, 0) >= ISNULL(@Qt_NTLM, 0) THEN 'OK' ELSE 'Possível problema encontrado (' + CAST(ISNULL(@Qt_NTLM, 0) AS VARCHAR(10)) + ' conexões NTLM)' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 107
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN ISNULL(@Qt_Kerberos, 0) >= ISNULL(@Qt_NTLM, 0) THEN 'OK' ELSE 'Possible issue found (' + CAST(ISNULL(@Qt_NTLM, 0) AS VARCHAR(10)) + ' NTLM connections)' END),
+			Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_AD_Sem_Kerberos>', 'Users_Without_Kerberos>'), '<Sessao ', '<Session ')
+		WHERE 
+			Id_Verificacao = 107
+		
+	END
 
 
 
@@ -1673,31 +3146,29 @@ WHERE
         FOR XML PATH(''), ROOT('Permissao_View_Any_Database'), TYPE
     )
     
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            108, 
-            'Segurança de Usuários',
-            'Permissão VIEW ANY DATABASE', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Identifica se existe algum usuário com permissão de VIEW ANY DATABASE, permitindo assim, que ele veja o nome de todos os databases da instância',
-            'Analisa na DMV sys.server_permissions se algum usuário com autenticação SQL tenha permissão de VIEW ANY DATABASE',
-            'Remova a permissão VIEW ANY DATABASE da role padrão public e de todos os usuários que não acessam o SQL Server pelo SSMS, especialmente sistemas. Utilizar o grupo do AD DOMINIO\Domain Users pode ser uma alternativa mais segura ao public',
-            'https://www.dirceuresende.com/blog/sql-server-como-ocultar-os-databases-para-usuarios-nao-autorizados/',
-            @Resultado
-        )
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 108
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Permissao_View_Any_Database>', 'Users_View_Any_Database>'), '<Usuario ', '<User ')
+		WHERE 
+			Id_Verificacao = 108
+		
+	END
 
     
     ---------------------------------------------------------------------------------------------------------------
@@ -1718,34 +3189,32 @@ WHERE
         WHERE 
             [name] = 'xp_cmdshell'
             AND value_in_use = 1
-        FOR XML PATH, ROOT('Configuration')
+        FOR XML PATH, ROOT('Configuracao')
     )
 
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            200, 
-            'Programação',
-            'xp_cmdshell', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite executar comandos maliciosos dentro do database através do xp_cmdshell',
-            'Verifique se a configuração "xp_cmdshell" está habilitada na sp_configure',
-            'Desabilite essa configuração caso não esteja utilizando em nenhuma rotina. Caso esteja, tente utilizar outra solução, como o SQLCLR, para prover essa funcionalidade',
-            'http://www.sqlservercentral.com/blogs/brian_kelley/2009/11/13/why-we-recommend-against-xp-cmdshell/',
-            @Resultado
-        )
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 200
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 200
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -1766,33 +3235,32 @@ WHERE
         WHERE 
             [name] = 'Ole Automation Procedures'
             AND value_in_use = 1
-        FOR XML PATH, ROOT('Configuration')
+        FOR XML PATH, ROOT('Configuracao')
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            201, 
-            'Programação',
-            'Ole Automation', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite executar comandos maliciosos dentro do database através de procedures OLE Automation',
-            'Verifique se a configuração "Ole Automation Procedures" está habilitada na sp_configure',
-            'Desabilite essa configuração caso não esteja utilizando em nenhuma rotina. Caso esteja, tente utilizar outra solução, como o SQLCLR, para prover essa funcionalidade',
-            'https://www.stigviewer.com/stig/microsoft_sql_server_2005_instance/2015-04-03/finding/V-2472',
-            @Resultado
-        )
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 201
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 201
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -1813,33 +3281,32 @@ WHERE
         WHERE 
             [name] = 'clr enabled'
             AND value_in_use = 1
-        FOR XML PATH, ROOT('Configuration')
+        FOR XML PATH, ROOT('Configuracao')
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            202, 
-            'Programação',
-            'SQLCLR', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite executar comandos maliciosos dentro do database através de procedures SQLCLR',
-            'Verifica se a configuração "clr enabled" está habilitada na sp_configure',
-            'Desabilite a configuração "clr enabled" caso não esteja utilizando nenhuma biblioteca SQLCLR',
-            'https://docs.microsoft.com/en-us/sql/relational-databases/clr-integration/security/clr-integration-code-access-security?view=sql-server-2017',
-            @Resultado
-        )
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 202
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 202
+		
+	END
 
         
    
@@ -1887,33 +3354,33 @@ WHERE
             @DadosSQLCLR
         ORDER BY
             1, 2, 3
-        FOR XML PATH(''), ROOT('Configuration'), TYPE
+        FOR XML PATH(''), ROOT('Configuracao'), TYPE
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            203, 
-            'Programação',
-            'SQLCLR Unsafe/External Access', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite executar comandos maliciosos dentro do database através de procedures SQLCLR com permissão Unsafe/External Access',
-            'Verifica se algum assembly, de algum database, foi criado com a PERMISSION_SET = UNSAFE ou EXTERNAL_ACCESS',
-            'Valide se essa biblioteca está realmente sendo utilizada e assine o assembly utilizando certificado de criptografia',
-            'https://docs.microsoft.com/en-us/sql/relational-databases/clr-integration/security/clr-integration-code-access-security?view=sql-server-2017',
-            @Resultado
-        )
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 203
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 203
+		
+	END
+
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -1934,33 +3401,33 @@ WHERE
         WHERE 
             [name] = 'external scripts enabled'
             AND value_in_use = 1
-        FOR XML PATH, ROOT('Configuration')
+        FOR XML PATH, ROOT('Configuracao')
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            204, 
-            'Programação',
-            'Scripts Externos (R, Python ou Java)', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite executar comandos maliciosos dentro do database através de scripts em linguagem R (SQL 2016), Python (SQL 2017) ou Java (SQL 2019)',
-            'Verifica se a configuração "external scripts enabled" está habilitada na sp_configure',
-            'Desabilite a configuração "external scripts enabled" caso não utilize scripts Python, R ou Java no SQL Server',
-            'https://www.stigviewer.com/stig/ms_sql_server_2016_instance/2018-03-09/finding/V-79347',
-            @Resultado
-        )
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 204
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao>', 'Configuration>')
+		WHERE 
+			Id_Verificacao = 204
+		
+	END
+
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -1991,31 +3458,29 @@ WHERE
     END
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            300, 
-            'Segurança dos Dados',
-            'Transparent Data Encryption (TDE)', 
-            (CASE WHEN @Versao < 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Configuração que permite criptografar os dados do banco, backups e logs para evitar acesso indevido aos dados',
-            'Valida os databases que não possuem o TDE habilitado',
-            'Habilite o TDE nas bases do SQL Server 2008+ para criptografar os dados, logs e backups automaticamente',
-            'https://www.dirceuresende.com/blog/sql-server-2008-como-criptografar-seus-dados-utilizando-transparent-data-encryption-tde/',
-            @Resultado
-        )
 
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Versao < 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 300
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Versao < 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Databases_Sem_TDE>', 'Databases_Without_TDE>')
+		WHERE 
+			Id_Verificacao = 300
+		
+	END
 
     
 
@@ -2045,32 +3510,31 @@ WHERE
         FOR XML PATH(''), ROOT('Databases_Sem_Backup'), TYPE
     )
 
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            301, 
-            'Segurança dos Dados',
-            'Databases sem Backup', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Validação que identifica bancos de dados SEM BACKUP, o que pode causar um tragédia caso algum dado fique corrompido',
-            'Verifica bancos de dados que não possuem nenhum tipo de BACKUP',
-            'Crie rotinas automáticas para backup FULL + DIFF + LOG em ambiente de produção ou backup FULL diário para ambientes não críticos',
-            'https://edvaldocastro.com/politicabkp/',
-            @Resultado
-        )
 
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 301
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Databases_Sem_Backup>', 'Databases_Without_Backup>')
+		WHERE 
+			Id_Verificacao = 301
+		
+	END
+
+    
 
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se foi realizado algum backup sem criptografia
@@ -2135,34 +3599,32 @@ WHERE
 
     END
     
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Versao <= 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 302
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Versao <= 2008 THEN 'Not Supported' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Backups_Sem_Criptografia>', 'Backups_Without_Encryption>')
+		WHERE 
+			Id_Verificacao = 302
+		
+	END
+
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            302, 
-            'Segurança dos Dados',
-            'Backups sem Criptografia', 
-            (CASE WHEN @Versao <= 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Validação que identifica bancos de dados com backup sem criptografia, o que possibilita que terceiros consigam ler os dados caso eles consigam acesso os arquivos de backup',
-            'Verifica backups de bancos de dados sem criptografia',
-            'Implemente TDE no database ou altere a sua rotina de backup para criptografar os backups',
-            'https://www.tiagoneves.net/blog/criando-um-backup-criptografado-no-sql-server/',
-            @Resultado
-        )
-
-
-
+    
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se existem databases com Recovery Model FULL e sem backup de LOG
     ---------------------------------------------------------------------------------------------------------------
@@ -2190,33 +3652,31 @@ WHERE
         FOR XML PATH(''), ROOT('Databases_Sem_Backup_de_LOG'), TYPE
     )
     
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 303
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Databases_Sem_Backup_de_LOG>', 'Backups_Without_Log_Backup>')
+		WHERE 
+			Id_Verificacao = 303
+		
+	END
+
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            303, 
-            'Segurança dos Dados',
-            'Recovery Model FULL sem Backup de LOG', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Validação que identifica bancos de dados com recovery model definido como FULL, mas sem rotina de backup de log configurada, o que provavelmente é uma configuração incorreta ou falta de rotina de backup',
-            'Verifica bancos de dados com recovery model FULL, mas sem rotina de backup de log',
-            'Implemente uma rotina automática de backup de log ou altere o Recovery Model para SIMPLE, caso não seja um ambiente crítico e dados após o último possam ser perdidos em caso de falha',
-            'https://www.brentozar.com/blitz/full-recovery-mode-without-log-backups/',
-            @Resultado
-        )
-
-
 
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica a extensão dos arquivos do SQL Server
@@ -2241,34 +3701,32 @@ WHERE
         FOR XML PATH(''), ROOT('Extensao_Padrao_Arquivos_SQL'), TYPE
     )
 
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 304
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Extensao_Padrao_Arquivos_SQL>', 'SQL_Datafiles_Extension>')
+		WHERE 
+			Id_Verificacao = 304
+		
+	END
+
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            304, 
-            'Segurança dos Dados',
-            'Extensão dos arquivos dos databases',
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Essa configuração valida se o SQL Server está utilizando as extensões padrão para arquivo de dados, logs e backups, que são alvos de Ransomwares, como o WannaCry',
-            'Verifica se os databases do SQL Server estão utilizando as extensão padrão para arquivos de dados (MDF) e logs (LDF)',
-            'Utilize extensões personalizadas para os arquivos de dados, logs e backups, dificultando que vírus e ransonwares ataquem os arquivos de database do SQL Server',
-            'https://www.dirceuresende.com/blog/sql-server-como-evitar-e-se-proteger-de-ataques-de-ransomware-como-wannacry-no-seu-servidor-de-banco-de-dados/',
-            @Resultado
-        )
-
-
-
+    
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica a extensão dos arquivos de backup do SQL Server
     --------------------------------------------------------------------------------------------------------------- 
@@ -2281,19 +3739,39 @@ WHERE
         B.[backup_start_date],
         B.[backup_finish_date],
         B.expiration_date,
-        (CASE B.[type] 
-            WHEN 'D' THEN 'Full'
-            WHEN 'I' THEN 'Diferencial'
-            WHEN 'L' THEN 'Log' 
-        END) AS backup_type,
+        (CASE 
+			WHEN @language = 'en' THEN
+				(CASE B.[type] 
+					WHEN 'D' THEN 'Full'
+					WHEN 'I' THEN 'Differential'
+					WHEN 'L' THEN 'Log' 
+				END)
+			ELSE
+				(CASE B.[type] 
+					WHEN 'D' THEN 'Full'
+					WHEN 'I' THEN 'Diferencial'
+					WHEN 'L' THEN 'Log' 
+				END)
+		END) AS backup_type,
         A.device_type,
-        (CASE A.device_type 
-            WHEN 2 THEN 'Disco' 
-            WHEN 5 THEN 'Fita' 
-            WHEN 7 THEN 'Dispositivo Virtual'
-            WHEN 9 THEN 'Azure Storage' 
-            WHEN 105 THEN 'Unidade de Backup' 
-        END) AS device_type_desc,
+		(CASE 
+			WHEN @language = 'en' THEN
+				(CASE A.device_type 
+					WHEN 2 THEN 'Disk' 
+					WHEN 5 THEN 'Tape' 
+					WHEN 7 THEN 'Virtual Device'
+					WHEN 9 THEN 'Azure Storage' 
+					WHEN 105 THEN 'Backup Unit' 
+				END)
+			ELSE
+				(CASE A.device_type 
+					WHEN 2 THEN 'Disco' 
+					WHEN 5 THEN 'Fita' 
+					WHEN 7 THEN 'Dispositivo Virtual'
+					WHEN 9 THEN 'Azure Storage' 
+					WHEN 105 THEN 'Unidade de Backup' 
+				END)
+		END) AS device_type_desc,
         B.backup_size,
         B.[name] AS backupset_name,
         B.[description]
@@ -2329,32 +3807,31 @@ WHERE
         FOR XML PATH(''), ROOT('Extensao_Padrao_Backups_SQL'), TYPE
     )
     
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            305, 
-            'Segurança dos Dados',
-            'Extensão dos arquivos de backup',
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Essa configuração valida se o SQL Server está utilizando as extensões padrão para arquivo de backup do banco, que são alvos de Ransomwares, como o WannaCry',
-            'Verifica se os databases do SQL Server estão utilizando as extensão padrão para arquivos de dados (BAK)',
-            'Utilize extensões personalizadas para os arquivos de dados, logs e backups, dificultando que vírus e ransonwares ataquem os arquivos de database do SQL Server',
-            'https://www.dirceuresende.com/blog/sql-server-como-evitar-e-se-proteger-de-ataques-de-ransomware-como-wannacry-no-seu-servidor-de-banco-de-dados/',
-            @Resultado
-        )
 
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 305
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Extensao_Padrao_Backups_SQL>', 'SQL_Backup_Extension>')
+		WHERE 
+			Id_Verificacao = 305
+		
+	END
+
+    
 
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se a instância possui alguma solução de backup além de backup em disco
@@ -2389,35 +3866,33 @@ WHERE
             A.[database_name]
         FOR XML PATH(''), ROOT('Armazenamento_Backups_SQL'), TYPE
     )
-    
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            306, 
-            'Segurança dos Dados',
-            'Armazenamento dos Backups',
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Essa configuração valida se o SQL Server está configurado para utilizar outro destino de backup que não seja apenas o disco',
-            'Verifica se os databases do SQL Server estão utilizando soluções alternativas para armazenamento dos arquivos de backup, como nuvem e/ou fita',
-            'Utilize mais de um local para armazenar seus arquivos de backup do SQL Server, pois caso você armazene em um local físico apenas, você pode perder todos os casos em caso de catástrofe',
-            'https://www.dirceuresende.com/blog/sql-server-como-evitar-e-se-proteger-de-ataques-de-ransomware-como-wannacry-no-seu-servidor-de-banco-de-dados/',
-            @Resultado
-        )
 
 
-        
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 306
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Armazenamento_Backups_SQL>', 'Backup_Device>')
+		WHERE 
+			Id_Verificacao = 306
+		
+	END
+    
+   
+   
     ---------------------------------------------------------------------------------------------------------------
     -- Usuários com permissão CONTROL SERVER
     ---------------------------------------------------------------------------------------------------------------
@@ -2477,34 +3952,32 @@ WHERE
                 AND A.is_disabled = 0
             ORDER BY
                 1
-        FOR XML PATH(''), ROOT('Users'), TYPE
+        FOR XML PATH(''), ROOT('Permissao_CONTROL_SERVER'), TYPE
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            400, 
-            'Permissões',
-            'Permissão CONTROL SERVER', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Permissão elevada que permite controlar e até mesmo, desligar a instância SQL Server',
-            'Verifica usuários com permissão de CONTROL SERVER ou permissões elevadas na instância',
-            'Remova as permissões elevadas desses usuários, caso não sejam DBAs e as permissões sejam realmente necessárias e justificáveis',
-            'https://www.stigviewer.com/stig/microsoft_sql_server_2012_database_instance/2017-04-03/finding/V-41268',
-            @Resultado
-        )
 
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 400
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Permissao_CONTROL_SERVER>', 'CONTROL_SERVER_Permission>')
+		WHERE 
+			Id_Verificacao = 400
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -2541,34 +4014,34 @@ WHERE
             AND A.[name] NOT LIKE 'SERVIÇO NT\%'
         ORDER BY
             1
-        FOR XML PATH(''), ROOT('Permissoes_Sysadmin_SecurityAdmin'), TYPE
+        FOR XML PATH(''), ROOT('Usuarios_Sysadmin_SecurityAdmin'), TYPE
     )
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            401, 
-            'Permissões',
-            'Usuários nas roles sysadmin/securityadmin', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Permissão elevada que permite executar comandos como outro login, controlar e até mesmo, desligar a instância SQL Server',
-            'Verifica os usuários que estão nas server roles sysadmin e/ou securityadmin',
-            'Remova esses usuários dessas duas roles caso não sejam DBAs e seja realmente necessário e justificável que esses usuários estejam nessas roles',
-            'https://renatomsiqueira.com/category/security/roles-security/',
-            @Resultado
-        )
 
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 401
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Sysadmin_SecurityAdmin>', 'Sysadmin_SecurityAdmin_Users>')
+		WHERE 
+			Id_Verificacao = 401
+		
+	END
+
+    
 
     ---------------------------------------------------------------------------------------------------------------
     -- Usuários com IMPERSONATE ANY LOGIN
@@ -2598,30 +4071,29 @@ WHERE
         FOR XML PATH(''), ROOT('Usuarios_Impersonate_Any_Login'), TYPE
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            402, 
-            'Permissões',
-            'IMPERSONATE ANY LOGIN', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Permissão que possibilita que um determinado login possa executar comandos como QUALQUER USUÁRIO, inclusive, um usuário sysadmin',
-            'Verifica os usuários que possuem a permissão "IMPERSONATE ANY LOGIN" na instância',
-            'Remova essa permissão desses usuários',
-            'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
-            @Resultado
-        )
+
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 402
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Impersonate_Any_Login>', 'Users_Impersonate_Any_Login>')
+		WHERE 
+			Id_Verificacao = 402
+		
+	END
         
 
 
@@ -2653,30 +4125,30 @@ WHERE
         FOR XML PATH(''), ROOT('Usuarios_Impersonate_Login'), TYPE
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            403, 
-            'Permissões',
-            'IMPERSONATE LOGIN', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Permissão que possibilita que um determinado login possa executar comandos como determinados logins da instância. Verificar se os login impersonáveis possuem permissões elevadas',
-            'Verifica os usuários que possuem a permissão "IMPERSONATE LOGIN" na instância',
-            'Remova essa permissão dos usuários, a não ser que exista algum motivo plausível que justifique que um login para executar comandos como outra pessoa',
-            'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
-            @Resultado
-        )
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 403
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Impersonate_Login>', 'Users_Impersonate_Login>')
+		WHERE 
+			Id_Verificacao = 403
+		
+	END
+
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -2772,30 +4244,29 @@ WHERE
     )
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            404, 
-            'Permissões',
-            'IMPERSONATE LOGIN em logins sysadmin/securityadmin', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Permissão que possibilita que um determinado login possa executar comandos como determinados logins da instância em usuários com permissões elevadas (securityadmin/sysadmin/CONTROL SERVER/IMPERSONATE ANY LOGIN)',
-            'Identifica usuários com privilégio de "IMPERSONATE LOGIN" em contas de usuários que são sysadmin/security admin ou possuem privilégios elevados',
-            'Remova essa permissão de IMPERSONATE LOGIN" desses usuários',
-            'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
-            @Resultado
-        )
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 404
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Impersonate_Login_Sysadmin>', 'Users_Impersonate_Login_Sysadmin>')
+		WHERE 
+			Id_Verificacao = 404
+		
+	END
+
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -2836,31 +4307,28 @@ WHERE
     )
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            405, 
-            'Permissões',
-            'db_owner e db_securityadmin', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Permissão que possibilita que um determinado usuário possa executar qualquer ação em um database específico',
-            'Verifica em todos os databases, quem são os usuários nas roles db_owner e db_securityadmin',
-            'Remova esses usuários dessas database roles e analise como substituí-las, como uma db_ddladmin, por exemplo, ou outra role com ainda menos permissões',
-            'https://docs.microsoft.com/pt-br/sql/relational-databases/security/authentication-access/database-level-roles?view=sql-server-2017',
-            @Resultado
-        )
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 405
 
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_DB_Owners>', 'Users_DB_Owner>')
+		WHERE 
+			Id_Verificacao = 405
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -2906,244 +4374,251 @@ WHERE
     )
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            406, 
-            'Permissões',
-            'IMPERSONATE USER', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Permissão que possibilita que um determinado usuário possa executar ações como se fosse outro usuário',
-            'Verifica em todos os databases quais são os usuários que possuem permissão de "IMPERSONATE USER"',
-            'Remove essa permissão dos usuários caso não haja nenhuma justificativa válida para um usuário executar comandos no database como se fosse outra pessoa',
-            'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
-            @Resultado
-        )
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 406
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Impersonate_User>', 'Users_Impersonate>')
+		WHERE 
+			Id_Verificacao = 406
+		
+	END
+
 
         
     ---------------------------------------------------------------------------------------------------------------
     -- Permissões da role PUBLIC
     ---------------------------------------------------------------------------------------------------------------
     
-    DECLARE @Permissoes_Public TABLE ( [database] nvarchar(128), [class_desc] nvarchar(60), [state_desc] nvarchar(60), [permission_name] nvarchar(128), [object_name] nvarchar(128), is_ms_shipped bit  )
+	IF (@heavy_operations = 1)
+	BEGIN
 
-    INSERT INTO @Permissoes_Public
-    EXEC sys.sp_MSforeachdb '
-    SELECT
-        ''?'' as [database],
-        A.class_desc,
-        A.state_desc,
-        A.[permission_name],
-        B.[name],
-        B.is_ms_shipped
-    FROM 
-        [?].sys.database_permissions A WITH(NOLOCK)
-        LEFT JOIN [?].sys.all_objects B WITH(NOLOCK) ON A.major_id = B.[object_id]
-    WHERE 
-        A.grantee_principal_id = 0
-        AND A.state IN (''G'', ''W'')
-        AND (A.major_id = 0 OR B.[object_id] IS NOT NULL)
-        AND ''?'' <> ''tempdb'''
+		DECLARE @Permissoes_Public TABLE ( [database] nvarchar(128), [class_desc] nvarchar(60), [state_desc] nvarchar(60), [permission_name] nvarchar(128), [object_name] nvarchar(128), is_ms_shipped bit  )
 
-    
-    SET @Resultado = NULL
-
-    IF (EXISTS(SELECT NULL FROM @Permissoes_Public))
-    BEGIN
-
-        SET @Resultado = (
-            SELECT NULL,
-            (
-                SELECT TOP(50)
-                    [database] AS 'Objetos_Sistema/@database',
-                    class_desc AS 'Objetos_Sistema/@class_desc',
-                    state_desc AS 'Objetos_Sistema/@state_desc',
-                    [permission_name] AS 'Objetos_Sistema/@permission_name',
-                    [object_name] AS 'Objetos_Sistema/@object_name'
-                FROM
-                    @Permissoes_Public
-                WHERE
-                    is_ms_shipped = 1
-                    OR (
-                        [database] = 'msdb'
-                        AND [object_name] LIKE 'sp_DTA_%'
-                    )
-                    OR ([object_name] IN ('fn_diagramobjects', 'sp_alterdiagram', 'sp_creatediagram', 'sp_dropdiagram', 'sp_helpdiagramdefinition', 'sp_helpdiagrams', 'sp_renamediagram', 'dt_whocheckedout_u'))
-                ORDER BY
-                    1, 5
-                FOR
-                    XML PATH(''), ROOT('Sistema'), TYPE
-            ),
-            (
-                SELECT TOP(50)
-                    [database] AS 'Objetos_Usuario/@database',
-                    class_desc AS 'Objetos_Usuario/@class_desc',
-                    state_desc AS 'Objetos_Usuario/@state_desc',
-                    [permission_name] AS 'Objetos_Usuario/@permission_name',
-                    [object_name] AS 'Objetos_Usuario/@object_name'
-                FROM
-                    @Permissoes_Public
-                WHERE
-                    is_ms_shipped = 0
-                    AND NOT (
-                        [database] = 'msdb'
-                        AND [object_name] LIKE 'sp_DTA_%'
-                    )
-                    AND NOT ([object_name] IN ('fn_diagramobjects', 'sp_alterdiagram', 'sp_creatediagram', 'sp_dropdiagram', 'sp_helpdiagramdefinition', 'sp_helpdiagrams', 'sp_renamediagram', 'dt_whocheckedout_u'))
-                ORDER BY
-                    1, 5
-                FOR
-                    XML PATH(''), ROOT('Usuario'), TYPE
-            )
-            FOR XML PATH(''), ROOT('Permissoes_Public')
-        )
-
-    END
+		INSERT INTO @Permissoes_Public
+		EXEC sys.sp_MSforeachdb '
+		SELECT
+			''?'' as [database],
+			A.class_desc,
+			A.state_desc,
+			A.[permission_name],
+			B.[name],
+			B.is_ms_shipped
+		FROM 
+			[?].sys.database_permissions A WITH(NOLOCK)
+			LEFT JOIN [?].sys.all_objects B WITH(NOLOCK) ON A.major_id = B.[object_id]
+		WHERE 
+			A.grantee_principal_id = 0
+			AND A.state IN (''G'', ''W'')
+			AND (A.major_id = 0 OR B.[object_id] IS NOT NULL)
+			AND ''?'' <> ''tempdb'''
 
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            407, 
-            'Permissões',
-            'Role PUBLIC com permissões', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Validação que garante que a role PUBLIC não tem nenhuma permissão elevada na instância, já que todos os usuários da instância estão nessa role automaticamente. Todas as permissões que essa role possuir, podem ser utilizadas por QUALQUER usuário da instância.',
-            'Verifica em todos os databases e na instância, todas as permissões que a role PUBLIC possui',
-            'Remova todas as permissões da role public',
-            'https://basitaalishan.com/2013/04/04/the-public-role-do-not-use-it-for-database-access/',
-            @Resultado
-        )
+		SET @Resultado = NULL
+
+		IF (EXISTS(SELECT NULL FROM @Permissoes_Public))
+		BEGIN
+
+			SET @Resultado = (
+				SELECT NULL,
+				(
+					SELECT TOP(50)
+						[database] AS 'Objetos_Sistema/@database',
+						class_desc AS 'Objetos_Sistema/@class_desc',
+						state_desc AS 'Objetos_Sistema/@state_desc',
+						[permission_name] AS 'Objetos_Sistema/@permission_name',
+						[object_name] AS 'Objetos_Sistema/@object_name'
+					FROM
+						@Permissoes_Public
+					WHERE
+						is_ms_shipped = 1
+						OR (
+							[database] = 'msdb'
+							AND [object_name] LIKE 'sp_DTA_%'
+						)
+						OR ([object_name] IN ('fn_diagramobjects', 'sp_alterdiagram', 'sp_creatediagram', 'sp_dropdiagram', 'sp_helpdiagramdefinition', 'sp_helpdiagrams', 'sp_renamediagram', 'dt_whocheckedout_u'))
+					ORDER BY
+						1, 5
+					FOR
+						XML PATH(''), ROOT('Sistema'), TYPE
+				),
+				(
+					SELECT TOP(50)
+						[database] AS 'Objetos_Usuario/@database',
+						class_desc AS 'Objetos_Usuario/@class_desc',
+						state_desc AS 'Objetos_Usuario/@state_desc',
+						[permission_name] AS 'Objetos_Usuario/@permission_name',
+						[object_name] AS 'Objetos_Usuario/@object_name'
+					FROM
+						@Permissoes_Public
+					WHERE
+						is_ms_shipped = 0
+						AND NOT (
+							[database] = 'msdb'
+							AND [object_name] LIKE 'sp_DTA_%'
+						)
+						AND NOT ([object_name] IN ('fn_diagramobjects', 'sp_alterdiagram', 'sp_creatediagram', 'sp_dropdiagram', 'sp_helpdiagramdefinition', 'sp_helpdiagrams', 'sp_renamediagram', 'dt_whocheckedout_u'))
+					ORDER BY
+						1, 5
+					FOR
+						XML PATH(''), ROOT('Usuario'), TYPE
+				)
+				FOR XML PATH(''), ROOT('Permissoes_Public')
+			)
+
+		END
+
+
+
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 407
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Permissoes_Public>', 'Public_Permissions>'), '<Objetos_Sistema', '<System_Objects'), '<Objetos_Usuario', 'User_Objects')
+			WHERE 
+				Id_Verificacao = 407
+		
+		END
+
+
+	END
 
         
     ---------------------------------------------------------------------------------------------------------------
     -- Permissões do usuário GUEST
     ---------------------------------------------------------------------------------------------------------------
 
-    DECLARE @Permissoes_Guest TABLE ( [database] nvarchar(128), [class_desc] nvarchar(60), [state_desc] nvarchar(60), [permission_name] nvarchar(128), [object_name] nvarchar(128), is_ms_shipped bit )
+	IF (@heavy_operations = 1)
+	BEGIN
 
-    INSERT INTO @Permissoes_Guest
-    EXEC sys.sp_MSforeachdb '
-    SELECT
-        ''?'' as [database],
-        A.class_desc,
-        A.state_desc,
-        A.[permission_name],
-        B.[name],
-        ISNULL(B.is_ms_shipped, 0) AS is_ms_shipped
-    FROM 
-        [?].sys.database_permissions A WITH(NOLOCK)
-        LEFT JOIN [?].sys.all_objects B WITH(NOLOCK) ON A.major_id = B.[object_id]
-    WHERE 
-        A.grantee_principal_id = 2
-        AND A.state IN (''G'', ''W'')
-        AND (A.major_id = 0 OR B.[object_id] IS NOT NULL)
-        AND NOT(''?'' IN (''master'', ''tempdb'', ''model'', ''msdb'') AND A.[permission_name] = ''CONNECT'')'
+		DECLARE @Permissoes_Guest TABLE ( [database] nvarchar(128), [class_desc] nvarchar(60), [state_desc] nvarchar(60), [permission_name] nvarchar(128), [object_name] nvarchar(128), is_ms_shipped bit )
+
+		INSERT INTO @Permissoes_Guest
+		EXEC sys.sp_MSforeachdb '
+		SELECT
+			''?'' as [database],
+			A.class_desc,
+			A.state_desc,
+			A.[permission_name],
+			B.[name],
+			ISNULL(B.is_ms_shipped, 0) AS is_ms_shipped
+		FROM 
+			[?].sys.database_permissions A WITH(NOLOCK)
+			LEFT JOIN [?].sys.all_objects B WITH(NOLOCK) ON A.major_id = B.[object_id]
+		WHERE 
+			A.grantee_principal_id = 2
+			AND A.state IN (''G'', ''W'')
+			AND (A.major_id = 0 OR B.[object_id] IS NOT NULL)
+			AND NOT(''?'' IN (''master'', ''tempdb'', ''model'', ''msdb'') AND A.[permission_name] = ''CONNECT'')'
 
 	
     
-    SET @Resultado = NULL
+		SET @Resultado = NULL
 
-    IF (EXISTS(SELECT NULL FROM @Permissoes_Guest))
-    BEGIN
+		IF (EXISTS(SELECT NULL FROM @Permissoes_Guest))
+		BEGIN
 
-        SET @Resultado = (
-            SELECT NULL,
-            (
-                SELECT 
-                    [database] AS 'Objetos_Sistema/@database',
-                    class_desc AS 'Objetos_Sistema/@class_desc',
-                    state_desc AS 'Objetos_Sistema/@state_desc',
-                    [permission_name] AS 'Objetos_Sistema/@permission_name',
-                    [object_name] AS 'Objetos_Sistema/@object_name'
-                FROM
-                    @Permissoes_Guest
-                WHERE
-                    is_ms_shipped = 1
-                    OR (
-                        [database] = 'msdb'
-                        AND [object_name] LIKE 'sp_DTA_%'
-                    )
-                    OR ([object_name] IN ('fn_diagramobjects', 'sp_alterdiagram', 'sp_creatediagram', 'sp_dropdiagram', 'sp_helpdiagramdefinition', 'sp_helpdiagrams', 'sp_renamediagram', 'dt_whocheckedout_u'))
-                ORDER BY
-                    1, 5
-                FOR
-                    XML PATH(''), ROOT('Sistema'), TYPE
-            ),
-            (
-                SELECT 
-                    [database] AS 'Objetos_Usuario/@database',
-                    class_desc AS 'Objetos_Usuario/@class_desc',
-                    state_desc AS 'Objetos_Usuario/@state_desc',
-                    [permission_name] AS 'Objetos_Usuario/@permission_name',
-                    [object_name] AS 'Objetos_Usuario/@object_name'
-                FROM
-                    @Permissoes_Guest
-                WHERE
-                    is_ms_shipped = 0
-                    AND NOT (
-                        [database] = 'msdb'
-                        AND [object_name] LIKE 'sp_DTA_%'
-                    )
-                    AND NOT ([object_name] IN ('fn_diagramobjects', 'sp_alterdiagram', 'sp_creatediagram', 'sp_dropdiagram', 'sp_helpdiagramdefinition', 'sp_helpdiagrams', 'sp_renamediagram', 'dt_whocheckedout_u'))
-                ORDER BY
-                    1, 5
-                FOR
-                    XML PATH(''), ROOT('Usuario'), TYPE
-            )
-            FOR XML PATH, ROOT('Permissoes_Guest')
-        )
+			SET @Resultado = (
+				SELECT NULL,
+				(
+					SELECT 
+						[database] AS 'Objetos_Sistema/@database',
+						class_desc AS 'Objetos_Sistema/@class_desc',
+						state_desc AS 'Objetos_Sistema/@state_desc',
+						[permission_name] AS 'Objetos_Sistema/@permission_name',
+						[object_name] AS 'Objetos_Sistema/@object_name'
+					FROM
+						@Permissoes_Guest
+					WHERE
+						is_ms_shipped = 1
+						OR (
+							[database] = 'msdb'
+							AND [object_name] LIKE 'sp_DTA_%'
+						)
+						OR ([object_name] IN ('fn_diagramobjects', 'sp_alterdiagram', 'sp_creatediagram', 'sp_dropdiagram', 'sp_helpdiagramdefinition', 'sp_helpdiagrams', 'sp_renamediagram', 'dt_whocheckedout_u'))
+					ORDER BY
+						1, 5
+					FOR
+						XML PATH(''), ROOT('Sistema'), TYPE
+				),
+				(
+					SELECT 
+						[database] AS 'Objetos_Usuario/@database',
+						class_desc AS 'Objetos_Usuario/@class_desc',
+						state_desc AS 'Objetos_Usuario/@state_desc',
+						[permission_name] AS 'Objetos_Usuario/@permission_name',
+						[object_name] AS 'Objetos_Usuario/@object_name'
+					FROM
+						@Permissoes_Guest
+					WHERE
+						is_ms_shipped = 0
+						AND NOT (
+							[database] = 'msdb'
+							AND [object_name] LIKE 'sp_DTA_%'
+						)
+						AND NOT ([object_name] IN ('fn_diagramobjects', 'sp_alterdiagram', 'sp_creatediagram', 'sp_dropdiagram', 'sp_helpdiagramdefinition', 'sp_helpdiagrams', 'sp_renamediagram', 'dt_whocheckedout_u'))
+					ORDER BY
+						1, 5
+					FOR
+						XML PATH(''), ROOT('Usuario'), TYPE
+				)
+				FOR XML PATH, ROOT('Permissoes_Guest')
+			)
 
-    END
+		END
 
 
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 408
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            408, 
-            'Permissões',
-            'Usuário GUEST com permissões', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Validação que garante que o usuário GUEST não tem nenhuma permissão na instância. Esse usuário especial permite acesso a qualquer login que não tenha usuário mapeado em um database e por isso, deve ter o privilégio de CONNECT revogado em todos os databases',
-            'Verifica se o usuário GUEST possui alguma permissão na instância',
-            'Remova todas as permissões do usuário GUEST que não seja CONNECT nas databases msdb, master e tempdb',
-            'https://basitaalishan.com/2012/08/28/sql-server-guest-user-still-a-serious-security-threat/',
-            @Resultado
-        )
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Permissoes_Guest>', 'Guest_Permissions>'), '<Objetos_Sistema ', '<System_Objects '), '<Objetos_Usuario ', 'User_Objects ')
+			WHERE 
+				Id_Verificacao = 408
+		
+		END
+
+
+	END
 
 
 
@@ -3170,33 +4645,31 @@ WHERE
         FOR XML PATH(''), ROOT('Usuarios_Unsafe_External_Assembly'), TYPE
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            409, 
-            'Permissões',
-            'Usuários com permissão UNSAFE/EXTERNAL ASSEMBLY', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Permissão que possibilita que um determinado login possa criar assemblies com o modo de segurança UNSAFE/EXTERNAL ACCESS no ambiente',
-            'Verifica os usuários que possuem permissões a nível de servidor "XU" (UNSAFE ASSEMBLY) e "XA" (EXTERNAL ACCESS ASSEMBLY)',
-            'Remova essas permissões caso esses usuários não precisem fazer deploy de assemblies SQLCLR nesses 2 modos de segurança',
-            'http://www.sqlservercentral.com/articles/Stairway+Series/112888/',
-            @Resultado
-        )
 
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 409
 
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
 
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Unsafe_External_Assembly>', 'Users_Unsafe_External_Assembly>'), '<Usuario ', '<User ')
+		WHERE 
+			Id_Verificacao = 409
+		
+	END
+
+    
     ---------------------------------------------------------------------------------------------------------------
     -- Usuários com permissões em extended procedures (xp_%)
     ---------------------------------------------------------------------------------------------------------------
@@ -3205,7 +4678,7 @@ WHERE
 
     SET @Resultado = (
         SELECT
-            u.[name] AS 'Permissao/@usuario',
+            u.[name] AS 'Permissao/@user',
             o.[name] AS 'Permissao/@stored_procedure',
             u.[type_desc] AS 'Permissao/@type',
             p.class_desc AS 'Permissao/@class_desc',
@@ -3228,258 +4701,269 @@ WHERE
         FOR XML PATH(''), ROOT('Permissoes_Extended_Procedures'), TYPE
     )
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            410, 
-            'Permissões',
-            'Permissões em Extended Procedures (xp_%)', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Permissão que possibilita que um determinado login possa utilizar Extended Procedures na instância, que são comandos que podem ler/gravar informações do registro do Windows, além de várias outras tarefas que podem causar risco para o ambiente',
-            'Verifica os usuários que possuem permissões em objetos de sistema que comecem com xp_%',
-            'Remova essas permissões',
-            'https://www.stigviewer.com/stig/microsoft_sql_server_2005_instance/2015-06-16/finding/V-2473',
-            @Resultado
-        )
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 410
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Permissoes_Extended_Procedures>', 'Permissions_Extended_Procedures>'), '<Permissao ', '<Permission ')
+		WHERE 
+			Id_Verificacao = 410
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
     -- Objetos com IMPERSONATE
     ---------------------------------------------------------------------------------------------------------------
     
-    DECLARE @Objetos_Com_Impersonate TABLE ( [Ds_Database] nvarchar(256), [Ds_Objeto] nvarchar(256), [Ds_Tipo] nvarchar(128), [Ds_Usuario] nvarchar(256) )
-
-    INSERT INTO @Objetos_Com_Impersonate
-    EXEC sys.sp_MSforeachdb '
-	IF (''?'' <> ''tempdb'')
+	IF (@heavy_operations = 1)
 	BEGIN
 
-		SELECT 
-			''?'' AS Ds_Database,
-			B.[name],
-			B.[type_desc],
-			(CASE WHEN A.execute_as_principal_id = -2 THEN ''OWNER'' ELSE C.[name] END) AS Ds_Execute_As
-		FROM
-			[?].sys.sql_modules A WITH(NOLOCK)
-			JOIN [?].sys.objects B WITH(NOLOCK) ON B.[object_id] = A.[object_id]
-			LEFT JOIN [?].sys.database_principals C WITH(NOLOCK) ON A.execute_as_principal_id = C.principal_id
-		WHERE
-			A.execute_as_principal_id IS NOT NULL
-			AND C.[name] <> ''dbo''
-			AND B.is_ms_shipped = 0
+		DECLARE @Objetos_Com_Impersonate TABLE ( [Ds_Database] nvarchar(256), [Ds_Objeto] nvarchar(256), [Ds_Tipo] nvarchar(128), [Ds_Usuario] nvarchar(256) )
+
+		INSERT INTO @Objetos_Com_Impersonate
+		EXEC sys.sp_MSforeachdb '
+		IF (''?'' <> ''tempdb'')
+		BEGIN
+
+			SELECT 
+				''?'' AS Ds_Database,
+				B.[name],
+				B.[type_desc],
+				(CASE WHEN A.execute_as_principal_id = -2 THEN ''OWNER'' ELSE C.[name] END) AS Ds_Execute_As
+			FROM
+				[?].sys.sql_modules A WITH(NOLOCK)
+				JOIN [?].sys.objects B WITH(NOLOCK) ON B.[object_id] = A.[object_id]
+				LEFT JOIN [?].sys.database_principals C WITH(NOLOCK) ON A.execute_as_principal_id = C.principal_id
+			WHERE
+				A.execute_as_principal_id IS NOT NULL
+				AND C.[name] <> ''dbo''
+				AND B.is_ms_shipped = 0
 			
-	END'
+		END'
 
 
-    SET @Resultado = NULL
+		SET @Resultado = NULL
 
-    SET @Resultado = (
-        SELECT 
-            Ds_Database AS 'Objeto/@database',
-            Ds_Objeto AS 'Objeto/@objeto',
-            Ds_Tipo AS 'Objeto/@tipo',
-            Ds_Usuario AS 'Objeto/@usuario'
-        FROM
-            @Objetos_Com_Impersonate
-        ORDER BY
-            1, 2, 4
-        FOR XML PATH(''), ROOT('Objetos_Com_IMPERSONATE'), TYPE
-    )
+		SET @Resultado = (
+			SELECT 
+				Ds_Database AS 'Objeto/@database',
+				Ds_Objeto AS 'Objeto/@object',
+				Ds_Tipo AS 'Objeto/@type',
+				Ds_Usuario AS 'Objeto/@user'
+			FROM
+				@Objetos_Com_Impersonate
+			ORDER BY
+				1, 2, 4
+			FOR XML PATH(''), ROOT('Objetos_Com_IMPERSONATE'), TYPE
+		)
 
 
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            500, 
-            'Vulnerabilidades em Código',
-            'Objetos com IMPERSONATE', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Verificação de procura por objetos (Stored Procedures, Functions, etc) que são executados como outro usuário que não o executor da Procedure',
-            'Verifica no código-fonte de todos os objetos, de todos os databases, os que objetos que são executados com as permissões de um usuário fixo (IMPERSONATE)',
-            'Remova o comando "EXECUTE AS" da declaração desses objetos, caso não seja necessário',
-            'https://www.dirceuresende.com/blog/sql-server-como-utilizar-o-execute-as-para-executar-comandos-como-outro-usuario-impersonate-e-como-impedir-isso/',
-            @Resultado
-        )
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 500
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Objetos_Com_IMPERSONATE>', 'Objects_With_Impersonate>'), '<Objeto ', '<Object ')
+			WHERE 
+				Id_Verificacao = 500
+		
+		END
+
+
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
     -- Objetos com query dinâmica
     ---------------------------------------------------------------------------------------------------------------
     
-    DECLARE @Objetos_Query_Dinamica TABLE ( [Ds_Database] nvarchar(256), [Ds_Objeto] nvarchar(256), [Ds_Tipo] nvarchar(128) )
-
-
-    IF (OBJECT_ID('tempdb.dbo.#Palavras_Exec') IS NOT NULL) DROP TABLE #Palavras_Exec
-    CREATE TABLE #Palavras_Exec (
-	    Palavra VARCHAR(100) COLLATE SQL_Latin1_General_CP1_CI_AI
-    )
-
-    INSERT INTO #Palavras_Exec
-    VALUES('%EXEC (%'), ('%EXEC(%'), ('%EXECUTE (%'), ('%EXECUTE(%'), ('%sp_executesql%')
-
-
-    INSERT INTO @Objetos_Query_Dinamica
-    EXEC sys.sp_MSforeachdb '
-	IF (''?'' <> ''tempdb'')
+	IF (@heavy_operations = 1)
 	BEGIN
 
-		SELECT DISTINCT TOP(100)
-			''?'' AS Ds_Database,
-			B.[name],
-			B.[type_desc]
-		FROM
-			[?].sys.sql_modules A WITH(NOLOCK)
-			JOIN [?].sys.objects B WITH(NOLOCK) ON B.[object_id] = A.[object_id]
-            JOIN #Palavras_Exec C WITH(NOLOCK) ON A.[definition] COLLATE SQL_Latin1_General_CP1_CI_AI LIKE C.Palavra
-		WHERE
-			B.is_ms_shipped = 0
-			AND ''?'' <> ''ReportServer''
-			AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
-            AND NOT (B.[name] LIKE ''stp_DTA_%'' AND ''?'' = ''msdb'')
-            AND NOT (B.[name] = ''sp_readrequest'' AND ''?'' = ''master'')
-			AND EXISTS (
-                SELECT NULL
-                FROM [?].sys.parameters X1 WITH(NOLOCK)
-                JOIN [?].sys.types X2 WITH(NOLOCK) ON X1.system_type_id = X2.user_type_id
-                WHERE A.[object_id] = X1.[object_id]
-                AND X2.[name] IN (''text'', ''ntext'', ''varchar'', ''nvarchar'')
-                AND (X1.max_length > 10 OR X1.max_length < 0)
-            )
+		DECLARE @Objetos_Query_Dinamica TABLE ( [Ds_Database] nvarchar(256), [Ds_Objeto] nvarchar(256), [Ds_Tipo] nvarchar(128) )
+
+
+		IF (OBJECT_ID('tempdb.dbo.#Palavras_Exec') IS NOT NULL) DROP TABLE #Palavras_Exec
+		CREATE TABLE #Palavras_Exec (
+			Palavra VARCHAR(100) COLLATE SQL_Latin1_General_CP1_CI_AI
+		)
+
+		INSERT INTO #Palavras_Exec
+		VALUES('%EXEC (%'), ('%EXEC(%'), ('%EXECUTE (%'), ('%EXECUTE(%'), ('%sp_executesql%')
+
+
+		INSERT INTO @Objetos_Query_Dinamica
+		EXEC sys.sp_MSforeachdb '
+		IF (''?'' <> ''tempdb'')
+		BEGIN
+
+			SELECT DISTINCT TOP(100)
+				''?'' AS Ds_Database,
+				B.[name],
+				B.[type_desc]
+			FROM
+				[?].sys.sql_modules A WITH(NOLOCK)
+				JOIN [?].sys.objects B WITH(NOLOCK) ON B.[object_id] = A.[object_id]
+				JOIN #Palavras_Exec C WITH(NOLOCK) ON A.[definition] COLLATE SQL_Latin1_General_CP1_CI_AI LIKE C.Palavra
+			WHERE
+				B.is_ms_shipped = 0
+				AND ''?'' <> ''ReportServer''
+				AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
+				AND NOT (B.[name] LIKE ''stp_DTA_%'' AND ''?'' = ''msdb'')
+				AND NOT (B.[name] = ''sp_readrequest'' AND ''?'' = ''master'')
+				AND EXISTS (
+					SELECT NULL
+					FROM [?].sys.parameters X1 WITH(NOLOCK)
+					JOIN [?].sys.types X2 WITH(NOLOCK) ON X1.system_type_id = X2.user_type_id
+					WHERE A.[object_id] = X1.[object_id]
+					AND X2.[name] IN (''text'', ''ntext'', ''varchar'', ''nvarchar'')
+					AND (X1.max_length > 10 OR X1.max_length < 0)
+				)
 			
-	END'
+		END'
 
     
         
-    SET @Resultado = NULL
+		SET @Resultado = NULL
 
-    SET @Resultado = (
-        SELECT 
-            Ds_Database AS 'Objeto/@Database',
-            Ds_Objeto AS 'Objeto/@Objeto',
-            Ds_Tipo AS 'Objeto/@Tipo'
-        FROM
-            @Objetos_Query_Dinamica
-        ORDER BY
-            1, 2
-        FOR XML PATH(''), ROOT('Objetos_Query_Dinamica'), TYPE
-    )
+		SET @Resultado = (
+			SELECT 
+				Ds_Database AS 'Objeto/@database',
+				Ds_Objeto AS 'Objeto/@object',
+				Ds_Tipo AS 'Objeto/@type'
+			FROM
+				@Objetos_Query_Dinamica
+			ORDER BY
+				1, 2
+			FOR XML PATH(''), ROOT('Objetos_Query_Dinamica'), TYPE
+		)
 
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            501, 
-            'Vulnerabilidades em Código',
-            'Objetos com Query Dinâmica', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Verificação de procura por objetos (Stored Procedures, Functions, etc) que possuem execução de códigos com query dinâmica, permitindo ataques como SQL Injection em suas aplicações e execução de códigos maliciosos',
-            'Verifica no código-fonte de todos os objetos, de todos os databases, os que objetos que utilizam query dinâmica e que são o provável motivo dessa configuração estar habilitada',
-            'Remova o uso de query dinâmica sempre que possível. Quando não for possível, valide o uso da query dinâmica para garantir que os parâmetros de entrada estão sendo tratados e que não são vulneráveis a ataques de SQL Injection',
-            'https://www.dirceuresende.com/blog/sql-server-como-evitar-sql-injection-pare-de-utilizar-query-dinamica-como-execquery-agora/',
-            @Resultado
-        )
+
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 501
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Objetos_Query_Dinamica>', 'Objects_With_Dynamic_Query>'), '<Objeto ', '<Object ')
+			WHERE 
+				Id_Verificacao = 501
+		
+		END
+
         
+	END
+
 
 
     ---------------------------------------------------------------------------------------------------------------
     -- Objetos utilizando xp_cmdshell
     ---------------------------------------------------------------------------------------------------------------
     
-    DECLARE @Objetos_xp_cmdshell TABLE ( [Ds_Database] nvarchar(256), [Ds_Objeto] nvarchar(256), [Ds_Tipo] nvarchar(128) )
-
-    INSERT INTO @Objetos_xp_cmdshell
-    EXEC sys.sp_MSforeachdb '
-	IF (''?'' <> ''tempdb'')
+	IF (@heavy_operations = 1)
 	BEGIN
 
-		SELECT TOP 100
-			''?'' AS Ds_Database,
-			B.[name],
-			B.[type_desc]
-		FROM
-			[?].sys.sql_modules A WITH(NOLOCK)
-			JOIN [?].sys.objects B WITH(NOLOCK) ON B.[object_id] = A.[object_id]
-		WHERE
-			B.is_ms_shipped = 0
-			AND ''?'' <> ''ReportServer''
-			AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
-			AND A.definition LIKE ''%xp_cmdshell%''
+		DECLARE @Objetos_xp_cmdshell TABLE ( [Ds_Database] nvarchar(256), [Ds_Objeto] nvarchar(256), [Ds_Tipo] nvarchar(128) )
+
+		INSERT INTO @Objetos_xp_cmdshell
+		EXEC sys.sp_MSforeachdb '
+		IF (''?'' <> ''tempdb'')
+		BEGIN
+
+			SELECT TOP 100
+				''?'' AS Ds_Database,
+				B.[name],
+				B.[type_desc]
+			FROM
+				[?].sys.sql_modules A WITH(NOLOCK)
+				JOIN [?].sys.objects B WITH(NOLOCK) ON B.[object_id] = A.[object_id]
+			WHERE
+				B.is_ms_shipped = 0
+				AND ''?'' <> ''ReportServer''
+				AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
+				AND A.definition LIKE ''%xp_cmdshell%''
 	
-	END'
+		END'
 
         
-    SET @Resultado = NULL
+		SET @Resultado = NULL
 
-    SET @Resultado = (
-        SELECT 
-            Ds_Database AS 'Objeto/@Database',
-            Ds_Objeto AS 'Objeto/@Objeto',
-            Ds_Tipo AS 'Objeto/@Tipo'
-        FROM
-            @Objetos_xp_cmdshell
-        ORDER BY
-            1, 2
-        FOR XML PATH(''), ROOT('Objetos_Utilizando_xp_cmdshell'), TYPE
-    )
+		SET @Resultado = (
+			SELECT 
+				Ds_Database AS 'Objeto/@database',
+				Ds_Objeto AS 'Objeto/@object',
+				Ds_Tipo AS 'Objeto/@type'
+			FROM
+				@Objetos_xp_cmdshell
+			ORDER BY
+				1, 2
+			FOR XML PATH(''), ROOT('Objetos_Utilizando_xp_cmdshell'), TYPE
+		)
 
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            502, 
-            'Vulnerabilidades em Código',
-            'Objetos utilizando xp_cmdshell', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Verificação de procura por objetos (Stored Procedures, Functions, etc) que possuem execução de códigos utilizando xp_cmdshell, permitindo que um usuário com acesso à essa SP possa executar qualquer comando que o usuário do serviço do SQL Server tenha acesso',
-            'Verifica no código-fonte de todos os objetos, de todos os databases, os que objetos que utilizam xp_cmdshell e que são o provável motivo dessa configuração estar habilitada',
-            'Remova o uso de comandos xp_cmdshell. Ao invés dele, opte por SQLCLR ou pacotes do SSIS',
-            'https://hydrasky.com/network-security/mssql-server-injection-tutorial/',
-            @Resultado
-        )
+
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 502
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Objetos_Utilizando_xp_cmdshell>', 'Objects_With_xp_cmdshell>'), '<Objeto ', '<Object ')
+			WHERE 
+				Id_Verificacao = 502
+		
+		END
+
+
+	END
 
         
 
@@ -3487,69 +4971,73 @@ WHERE
     -- Objetos utilizando OLE Automation Procedures
     ---------------------------------------------------------------------------------------------------------------
     
-    DECLARE @Objetos_OLE_Automation TABLE ( [Ds_Database] nvarchar(256), [Ds_Objeto] nvarchar(256), [Ds_Tipo] nvarchar(128) )
-
-    INSERT INTO @Objetos_OLE_Automation
-    EXEC sys.sp_MSforeachdb '
-	IF (''?'' <> ''tempdb'')
+	IF (@heavy_operations = 1)
 	BEGIN
 
-		SELECT TOP(100)
-			''?'' AS Ds_Database,
-			B.[name],
-			B.[type_desc]
-		FROM
-			[?].sys.sql_modules A WITH(NOLOCK)
-			JOIN [?].sys.objects B WITH(NOLOCK) ON B.[object_id] = A.[object_id]
-		WHERE
-			B.is_ms_shipped = 0
-			AND ''?'' <> ''ReportServer''
-			AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
-            AND B.[name] NOT IN (''dt_addtosourcecontrol'', ''dt_addtosourcecontrol_u'', ''dt_adduserobject'', ''dt_adduserobject_vcs'', ''dt_checkinobject'', ''dt_checkinobject_u'', ''dt_checkoutobject'', ''dt_checkoutobject_u'', ''dt_displayoaerror'', ''dt_displayoaerror_u'', ''dt_droppropertiesbyid'', ''dt_dropuserobjectbyid'', ''dt_generateansiname'', ''dt_getobjwithprop'', ''dt_getobjwithprop_u'', ''dt_getpropertiesbyid'', ''dt_getpropertiesbyid_u'', ''dt_getpropertiesbyid_vcs'', ''dt_getpropertiesbyid_vcs_u'', ''dt_isundersourcecontrol'', ''dt_isundersourcecontrol_u'', ''dt_removefromsourcecontrol'', ''dt_setpropertybyid'', ''dt_setpropertybyid_u'', ''dt_validateloginparams'', ''dt_validateloginparams_u'', ''dt_vcsenabled'', ''dt_verstamp006'', ''dt_verstamp007'', ''dt_whocheckedout'', ''dt_whocheckedout_u'')
-			AND A.definition LIKE ''%sp_OACreate%''
+		DECLARE @Objetos_OLE_Automation TABLE ( [Ds_Database] nvarchar(256), [Ds_Objeto] nvarchar(256), [Ds_Tipo] nvarchar(128) )
+
+		INSERT INTO @Objetos_OLE_Automation
+		EXEC sys.sp_MSforeachdb '
+		IF (''?'' <> ''tempdb'')
+		BEGIN
+
+			SELECT TOP(100)
+				''?'' AS Ds_Database,
+				B.[name],
+				B.[type_desc]
+			FROM
+				[?].sys.sql_modules A WITH(NOLOCK)
+				JOIN [?].sys.objects B WITH(NOLOCK) ON B.[object_id] = A.[object_id]
+			WHERE
+				B.is_ms_shipped = 0
+				AND ''?'' <> ''ReportServer''
+				AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
+				AND B.[name] NOT IN (''dt_addtosourcecontrol'', ''dt_addtosourcecontrol_u'', ''dt_adduserobject'', ''dt_adduserobject_vcs'', ''dt_checkinobject'', ''dt_checkinobject_u'', ''dt_checkoutobject'', ''dt_checkoutobject_u'', ''dt_displayoaerror'', ''dt_displayoaerror_u'', ''dt_droppropertiesbyid'', ''dt_dropuserobjectbyid'', ''dt_generateansiname'', ''dt_getobjwithprop'', ''dt_getobjwithprop_u'', ''dt_getpropertiesbyid'', ''dt_getpropertiesbyid_u'', ''dt_getpropertiesbyid_vcs'', ''dt_getpropertiesbyid_vcs_u'', ''dt_isundersourcecontrol'', ''dt_isundersourcecontrol_u'', ''dt_removefromsourcecontrol'', ''dt_setpropertybyid'', ''dt_setpropertybyid_u'', ''dt_validateloginparams'', ''dt_validateloginparams_u'', ''dt_vcsenabled'', ''dt_verstamp006'', ''dt_verstamp007'', ''dt_whocheckedout'', ''dt_whocheckedout_u'')
+				AND A.definition LIKE ''%sp_OACreate%''
 			
-	END'
+		END'
 
         
-    SET @Resultado = NULL
+		SET @Resultado = NULL
 
-    SET @Resultado = (
-        SELECT
-            Ds_Database AS 'Objeto/@Database',
-            Ds_Objeto AS 'Objeto/@Objeto',
-            Ds_Tipo AS 'Objeto/@Tipo'
-        FROM
-            @Objetos_OLE_Automation
-        ORDER BY
-            1, 2
-        FOR XML PATH(''), ROOT('Objetos_Utilizando_OLE_Automation'), TYPE
-    )
+		SET @Resultado = (
+			SELECT
+				Ds_Database AS 'Objeto/@database',
+				Ds_Objeto AS 'Objeto/@object',
+				Ds_Tipo AS 'Objeto/@type'
+			FROM
+				@Objetos_OLE_Automation
+			ORDER BY
+				1, 2
+			FOR XML PATH(''), ROOT('Objetos_Utilizando_OLE_Automation'), TYPE
+		)
 
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            503, 
-            'Vulnerabilidades em Código',
-            'Objetos utilizando OLE Automation', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Verificação de procura por objetos (Stored Procedures, Functions, etc) que possuem execução de códigos utilizando OLE Automation Procedures, que são conhecidas por possíveis memory dumps, vazamentos de memória e acessos externos diversos, como escrever arquivos, enviar requisições HTTP, etc.',
-            'Verifica no código-fonte de todos os objetos, de todos os databases, os que objetos que utilizam OLE Automation e que são o provável motivo dessa configuração estar habilitada',
-            'Remova o uso de comandos OLE Automation. Ao invés dele, opte por SQLCLR ou pacotes do SSIS',
-            'https://visualstudiomagazine.com/articles/2005/09/01/when-to-use-sqlclr-and-when-not-to.aspx',
-            @Resultado
-        )
+		
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 503
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Objetos_Utilizando_OLE_Automation>', 'Objects_With_OLE_Automation>'), '<Objeto ', '<Object ')
+			WHERE 
+				Id_Verificacao = 503
+		
+		END
+
+
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -3590,101 +5078,102 @@ WHERE
         FOR XML PATH(''), ROOT('Procedures_Executadas_Automaticamente'), TYPE
     )
 
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 504
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Procedures_Executadas_Automaticamente>', 'Startup_Procedures>'), '<Objeto ', '<Object ')
+		WHERE 
+			Id_Verificacao = 504
+		
+	END
+
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            504, 
-            'Vulnerabilidades em Código',
-            'Procedures Executadas Automaticamente', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Verificação de procura por objetos que são executados automaticamente na inicialização do SQL Server, o que pode ser utilizado por invasores para executar códigos maliciosos toda vez que o serviço for iniciado',
-            'Verifica na DMV sys.procedures de todos os databases, quais procedures possuem a propriedade is_auto_executed = 1',
-            'Remova essas SPs da inicialização do SQL Server utilizando a SP sp_procoption ou dropando e recriando essa SP',
-            'http://blogs.lessthandot.com/index.php/datamgmt/datadesign/list-all-stored-procedures-that/',
-            @Resultado
-        )
-
-
 
     ---------------------------------------------------------------------------------------------------------------
     -- Objetos com comandos de GRANT
     ---------------------------------------------------------------------------------------------------------------
     
-    DECLARE @Objetos_Com_Grant TABLE ( [Ds_Database] nvarchar(256), [Ds_Objeto] nvarchar(256), [Ds_Tipo] nvarchar(128) )
-
-    INSERT INTO @Objetos_Com_Grant
-    EXEC sys.sp_MSforeachdb '
-	IF (''?'' <> ''tempdb'')
+	IF (@heavy_operations = 1)
 	BEGIN
 
-		SELECT TOP(100)
-			''?'' AS Ds_Database,
-			B.[name],
-			B.[type_desc]
-		FROM
-			[?].sys.sql_modules A WITH(NOLOCK)
-			JOIN [?].sys.objects B WITH(NOLOCK) ON B.[object_id] = A.[object_id]
-		WHERE
-			B.is_ms_shipped = 0
-			AND A.definition LIKE ''%GRANT %''
-            AND ''?'' NOT IN (''master'', ''ReportServer'')
-            AND B.[name] NOT IN (''dt_addtosourcecontrol'', ''dt_addtosourcecontrol_u'', ''dt_adduserobject'', ''dt_adduserobject_vcs'', ''dt_checkinobject'', ''dt_checkinobject_u'', ''dt_checkoutobject'', ''dt_checkoutobject_u'', ''dt_displayoaerror'', ''dt_displayoaerror_u'', ''dt_droppropertiesbyid'', ''dt_dropuserobjectbyid'', ''dt_generateansiname'', ''dt_getobjwithprop'', ''dt_getobjwithprop_u'', ''dt_getpropertiesbyid'', ''dt_getpropertiesbyid_u'', ''dt_getpropertiesbyid_vcs'', ''dt_getpropertiesbyid_vcs_u'', ''dt_isundersourcecontrol'', ''dt_isundersourcecontrol_u'', ''dt_removefromsourcecontrol'', ''dt_setpropertybyid'', ''dt_setpropertybyid_u'', ''dt_validateloginparams'', ''dt_validateloginparams_u'', ''dt_vcsenabled'', ''dt_verstamp006'', ''dt_verstamp007'', ''dt_whocheckedout'', ''dt_whocheckedout_u'', ''stpChecklist_Seguranca'')
+		DECLARE @Objetos_Com_Grant TABLE ( [Ds_Database] nvarchar(256), [Ds_Objeto] nvarchar(256), [Ds_Tipo] nvarchar(128) )
+
+		INSERT INTO @Objetos_Com_Grant
+		EXEC sys.sp_MSforeachdb '
+		IF (''?'' <> ''tempdb'')
+		BEGIN
+
+			SELECT TOP(100)
+				''?'' AS Ds_Database,
+				B.[name],
+				B.[type_desc]
+			FROM
+				[?].sys.sql_modules A WITH(NOLOCK)
+				JOIN [?].sys.objects B WITH(NOLOCK) ON B.[object_id] = A.[object_id]
+			WHERE
+				B.is_ms_shipped = 0
+				AND A.definition LIKE ''%GRANT %''
+				AND ''?'' NOT IN (''master'', ''ReportServer'')
+				AND B.[name] NOT IN (''dt_addtosourcecontrol'', ''dt_addtosourcecontrol_u'', ''dt_adduserobject'', ''dt_adduserobject_vcs'', ''dt_checkinobject'', ''dt_checkinobject_u'', ''dt_checkoutobject'', ''dt_checkoutobject_u'', ''dt_displayoaerror'', ''dt_displayoaerror_u'', ''dt_droppropertiesbyid'', ''dt_dropuserobjectbyid'', ''dt_generateansiname'', ''dt_getobjwithprop'', ''dt_getobjwithprop_u'', ''dt_getpropertiesbyid'', ''dt_getpropertiesbyid_u'', ''dt_getpropertiesbyid_vcs'', ''dt_getpropertiesbyid_vcs_u'', ''dt_isundersourcecontrol'', ''dt_isundersourcecontrol_u'', ''dt_removefromsourcecontrol'', ''dt_setpropertybyid'', ''dt_setpropertybyid_u'', ''dt_validateloginparams'', ''dt_validateloginparams_u'', ''dt_vcsenabled'', ''dt_verstamp006'', ''dt_verstamp007'', ''dt_whocheckedout'', ''dt_whocheckedout_u'', ''stpChecklist_Seguranca'')
 			
-	END'
+		END'
 
         
-    SET @Resultado = NULL
+		SET @Resultado = NULL
 
-    SET @Resultado = (
-        SELECT 
-            Ds_Database AS 'Objeto/@database',
-            Ds_Objeto AS 'Objeto/@objeto',
-            Ds_Tipo AS 'Objeto/@tipo'
-        FROM
-            @Objetos_Com_Grant
-        ORDER BY
-            1, 2
-        FOR XML PATH(''), ROOT('Objetos_Utilizando_Grant'), TYPE
-    )
+		SET @Resultado = (
+			SELECT 
+				Ds_Database AS 'Objeto/@database',
+				Ds_Objeto AS 'Objeto/@object',
+				Ds_Tipo AS 'Objeto/@type'
+			FROM
+				@Objetos_Com_Grant
+			ORDER BY
+				1, 2
+			FOR XML PATH(''), ROOT('Objetos_Utilizando_Grant'), TYPE
+		)
+
+
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 505
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Objetos_Utilizando_Grant>', 'Objects_With_Grants>'), '<Objeto ', '<Object ')
+			WHERE 
+				Id_Verificacao = 505
+		
+		END
 
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            505, 
-            'Vulnerabilidades em Código',
-            'Objetos utilizando GRANT', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Verificação de procura por objetos (Stored Procedures, Functions, etc) que possuem execução de códigos utilizando comandos de GRANT, liberando permissões que podem ser perigosas no ambiente, especialmente se estiver dentro de jobs e rotinas automáticas',
-            'Verifica no código-fonte de todos os objetos, de todos os databases, os que objetos que utilizam comandos de GRANT para liberar permissões',
-            'Remova o uso de comandos GRANT de objetos',
-            NULL,
-            @Resultado
-        )
-
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -3715,30 +5204,28 @@ WHERE
     )
 
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            506, 
-            'Vulnerabilidades em Código',
-            'Linked Server com usuário Fixo', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Verificação de procura por Linked Servers que utilizam um usuário fixo ao invés do usuário atual',
-            'Verifica nas DMVs sys.servers e sys.linked_logins se existe Linked Server com usuário fixo (uses_self_credential = 0)',
-            'Se possível, troque a autenticação do Linked Server pelo usuário atual da conexão',
-            NULL,
-            @Resultado
-        )
+    IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 506
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'LinkedServer_Usuario_Fixo>', 'LinkedServer_Fixed_User>')
+		WHERE 
+			Id_Verificacao = 506
+		
+	END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -3757,32 +5244,31 @@ WHERE
 
     END
     
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            600, 
-            'Instalação',
-            'Porta Padrão (1433)', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Essa verificação valida se o SQL Server está utilizando a porta padrão (1433) para conexões. Utilizar a porta padrão pode significar um risco de segurança, pois é a primeira porta que qualquer hacker tentaria invadir num possível ataque',
-            'Verifica se o SQL Server está utilizando a porta padrão (1433) para conexões',
-            'Altere a porta do SQL Server para algum porta diferente do padrão, a fim de prover mais uma camada de segurança, dificultando ataques hackers',
-            'https://thomaslarock.com/2016/12/using-non-default-ports-for-sql-server/',
-            @Resultado
-        )
 
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 600
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Porta_Utilizada>', 'Used_Port>')
+		WHERE 
+			Id_Verificacao = 600
+		
+	END
+
+    
 
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se o SQL Browser está sendo executado sem necessidade (apenas 1 instância)
@@ -3826,30 +5312,30 @@ WHERE
         END
 
 
-        INSERT INTO #Resultado
-        (
-            Id_Verificacao,
-            Ds_Categoria,
-            Ds_Titulo,
-            Ds_Resultado,
-            Ds_Descricao,
-            Ds_Verificacao,
-            Ds_Sugestao,
-		    Ds_Referencia,
-            Ds_Detalhes
-        )
-        VALUES
-            (
-                601, 
-                'Instalação',
-                'SQL Browser executando com apenas 1 instância', 
-                (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-                'Essa configuração valida se o SQL Browser está sendo executado em ambientes com apenas 1 instância, o que não justifica a execução desse serviço, que serve para fornecer informações das instâncias instaladas no servidor e pode facilitar ataques maliciosos ao expor os nomes das instâncias na rede. Caso essa instância não faça parte de um cluster, analise se o serviço pode ser desativado e se portas customizadas estão sendo utilizadas.',
-                'Verifica se o SQL Browser está sendo executado em ambientes com apenas 1 instância',
-                'Desabilite o SQL Browser caso você esteja utilizando a instância padrão do SQL Server OU se na string de conexão você já utiliza o formato "SERVIDOR\INSTANCIA,PORTA"',
-                'https://www.stigviewer.com/stig/ms_sql_server_2014_instance/2016-11-16/finding/V-70623',
-                @Resultado
-            )
+
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 601
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'SQL_Browser_Rodando_Apenas_1_Instancia>', 'SQL_Browser_1_Instance>')
+			WHERE 
+				Id_Verificacao = 601
+		
+		END
+
 
     END
 
@@ -3879,36 +5365,34 @@ WHERE
 
             SET @Resultado = (
                 SELECT @HideInstance AS [HideInstance]
-                FOR XML PATH, ROOT('Configuracao_HideInstance')
+                FOR XML PATH, ROOT('Instalacao_HideInstance')
             )
 
         END
 
 
-        INSERT INTO #Resultado
-        (
-            Id_Verificacao,
-            Ds_Categoria,
-            Ds_Titulo,
-            Ds_Resultado,
-            Ds_Descricao,
-            Ds_Verificacao,
-            Ds_Sugestao,
-		    Ds_Referencia,
-            Ds_Detalhes
-        )
-        VALUES
-            (
-                602, 
-                'Instalação',
-                'Nome da instância exposta na rede', 
-                (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-                'Essa configuração valida se o nome da instância está exposta na rede, permitindo que ela seja listada através da opção "Browse.." do SQL Server Management Studio (SSMS)',
-                'Verifica se o parâmetro HideInstance está ativado no SQL Configuration Manager',
-                'Ative o parâmetro "Hide Instance" dessa instância no SQL Configuration Manager, abaixo de "SQL Server Network Configuration" -> "Protocols for <Sua Instancia>"',
-                'https://www.mytechmantra.com/LearnSQLServer/How_to_Hide_an_Instance_of_SQL_Server.html',
-                @Resultado
-            )
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 602
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Instalacao_HideInstance>', 'Installation_HideInstance>')
+			WHERE 
+				Id_Verificacao = 602
+		
+		END
 
 
     END
@@ -3947,36 +5431,36 @@ WHERE
                 SELECT
                     @DBEngineLogin AS [DBEngineLogin],
                     @AgentLogin AS [AgentLogin]
-                FOR XML PATH, ROOT('Configuracao_Usuario_Servico')
+                FOR XML PATH, ROOT('Instalacao_Usuario_Servico')
             )
 
         END
     
 
-        INSERT INTO #Resultado
-        (
-            Id_Verificacao,
-            Ds_Categoria,
-            Ds_Titulo,
-            Ds_Resultado,
-            Ds_Descricao,
-            Ds_Verificacao,
-            Ds_Sugestao,
-		    Ds_Referencia,
-            Ds_Detalhes
-        )
-        VALUES
-            (
-                603, 
-                'Instalação',
-                'Usuário dos Serviços de SQL',
-                (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-                'Essa configuração valida os usuários utilizados para iniciar os serviços do SQL Server. A recomendação é que sejam utilizados usuários do AD, para que a manutenção desses usuários seja fácil pelo time de Infra. Usuários locais não devem ser utilizados, pois ele possuem permissões elevadas nos diretórios do SO',
-                'Verifica se os usuários utilizados pelos serviços são os usuários padrão do SQL Server',
-                'Altere o usuário dos serviços SQL por usuários do AD, com permissões restritas, caso seu servidor precise de acesso à rede ou a outros servidores. Caso contrário, utilize a conta Local User Account',
-                'https://sqlcommunity.com/best-practices-for-sql-server-service-account/',
-                @Resultado
-            )
+
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 603
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Instalacao_Usuario_Servico>', 'Installation__Service_Account>')
+			WHERE 
+				Id_Verificacao = 603
+		
+		END
+
 
     END
 
@@ -4014,30 +5498,28 @@ WHERE
         )
     
 
-        INSERT INTO #Resultado
-        (
-            Id_Verificacao,
-            Ds_Categoria,
-            Ds_Titulo,
-            Ds_Resultado,
-            Ds_Descricao,
-            Ds_Verificacao,
-            Ds_Sugestao,
-		    Ds_Referencia,
-            Ds_Detalhes
-        )
-        VALUES
-            (
-                604, 
-                'Instalação',
-                'SQL Server em Windows com versão antiga ou pessoal', 
-                (CASE WHEN @VersaoWindows_ProductName LIKE '% Server %' AND (@VersaoWindows_ProductName LIKE '% Server 2016%' OR @VersaoWindows_ProductName LIKE '% Server 2019%') THEN 'OK' ELSE 'Possível problema encontrado' END), 
-                'Essa configuração valida se o SQL Server está instalado em uma versão desatualizada do Windows Server ou se está instalado numa versão pessoal do Windows',
-                'Verifica a versão do Windows para identificar se está utilizando a versão mais recente do Windows Server',
-                'Utilize sempre a versão mais recente do Windows Server para garantir a utilização de novas recursos e correções de segurança',
-                'https://www.microsoft.com/pt-br/cloud-platform/windows-server',
-                @Resultado
-            )
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @VersaoWindows_ProductName LIKE '% Server %' AND (@VersaoWindows_ProductName LIKE '% Server 2016%' OR @VersaoWindows_ProductName LIKE '% Server 2019%') THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 604
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @VersaoWindows_ProductName LIKE '% Server %' AND (@VersaoWindows_ProductName LIKE '% Server 2016%' OR @VersaoWindows_ProductName LIKE '% Server 2019%') THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Instalacao_Versao_Windows>', 'Installation_Windows_Version>')
+			WHERE 
+				Id_Verificacao = 604
+		
+		END
 
 
     END
@@ -4115,32 +5597,31 @@ WHERE
         FOR XML PATH, ROOT('Instalacao_Versao_Nao_Suportada')
     )
     
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            605, 
-            'Instalação',
-            'Versão do SQL Server não suportada',
-            (CASE WHEN CONVERT(INT, SERVERPROPERTY('ProductMajorVersion')) >= 11 THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Essa configuração valida se o SQL Server possui uma versão que ainda tem suporte e atualizações pela Microsoft',
-            'Verifica a versão do SQL Server ainda é suportada pela Microsoft',
-            'Atualize a versão do SQL Server para receber atualizações de segurança e utilizar novos recursos',
-            'https://www.microsoft.com/pt-br/sql-server/sql-server-downloads',
-            @Resultado
-        )
 
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN CONVERT(INT, SERVERPROPERTY('ProductMajorVersion')) >= 11 THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 605
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN CONVERT(INT, SERVERPROPERTY('ProductMajorVersion')) >= 11 THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Instalacao_Versao_Nao_Suportada>', 'Installation_Not_Supported_Version>')
+		WHERE 
+			Id_Verificacao = 605
+		
+	END
+
+    
 
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica a última atualização do SQL Server
@@ -4311,33 +5792,33 @@ WHERE
             FROM @Atualizacoes_SQL_Server
             FOR XML PATH, ROOT('Instalacao_Atualizacoes_SQL')
         )
-    
-    
-        INSERT INTO #Resultado
-        (
-            Id_Verificacao,
-            Ds_Categoria,
-            Ds_Titulo,
-            Ds_Resultado,
-            Ds_Descricao,
-            Ds_Verificacao,
-            Ds_Sugestao,
-		    Ds_Referencia,
-            Ds_Detalhes
-        )
-        VALUES
-            (
-                606, 
-                'Instalação',
-                'SQL Server desatualizado', 
-                (CASE WHEN CONVERT(VARCHAR(100), SERVERPROPERTY('ProductVersion')) >= @Ultimo_Build THEN 'OK' ELSE 'Possível problema encontrado' END), 
-                'Essa configuração valida se o SQL Server está instalado com a última versão dos Service Pack e Cumulative Updates disponíveis. Estar sempre atualizado é importante para a segurança, pois garante que falhas críticas estejam sempre atualizadas e corrigidas',
-                'Verifica se o build mais recente do SQL Server é o mesmo do build instalado',
-                'Utilize sempre a versão mais recente SQL Server e o mantenha atualizado com a última versão do Service Pack e Cumulative Updates',
-                @Url_Ultima_Versao_SQL,
-                @Resultado
-            )
 
+
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN CONVERT(VARCHAR(100), SERVERPROPERTY('ProductVersion')) >= @Ultimo_Build THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Referencia = @Url_Ultima_Versao_SQL,
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 606
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN CONVERT(VARCHAR(100), SERVERPROPERTY('ProductVersion')) >= @Ultimo_Build THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Referencia = @Url_Ultima_Versao_SQL,
+				Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Instalacao_Atualizacoes_SQL>', 'Installation_SQL_Updates>')
+			WHERE 
+				Id_Verificacao = 606
+		
+		END
+    
 
     END
 
@@ -4361,37 +5842,34 @@ WHERE
             sys.databases
         WHERE
             [name] IN ('pub', 'Northwind', 'AdventureWorks', 'AdventureWorksLT', 'AdventureWorksDW', 'WideWorldImporters', 'WideWorldImportersDW')
-        FOR XML PATH(''), ROOT('Databases_Publicas_Instaladas'), TYPE
+        FOR XML PATH(''), ROOT('Instalacao_Databases_Publicas'), TYPE
     )
+
+
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 607
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Instalacao_Databases_Publicas>', 'Installation_Public_Databases>')
+		WHERE 
+			Id_Verificacao = 607
+		
+	END
     
     
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            607, 
-            'Instalação',
-            'Databases públicas instaladas', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Essa configuração valida se algum dos databases públicos são instalados na instância, servindo como uma possível porta de entrada para ataques, já que sua estrutura é amplamente conhecida',
-            'Verifica se os databases pub, Northwind, AdventureWorks, AdventureWorksLT, AdventureWorksDW, WideWorldImporters ou WideWorldImportersDW estão instalados',
-            'Caso seja uma base de produção, remova esses databases e crie-os em instâncias de testes/desenvolvimento',
-            'https://www.stigviewer.com/stig/ms_sql_server_2014_instance/2017-11-30/finding/V-67817',
-            @Resultado
-        )
-
-
-
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se existem bases de dados "públicas" na instância
     ---------------------------------------------------------------------------------------------------------------
@@ -4406,36 +5884,34 @@ WHERE
             sys.dm_exec_connections 
         WHERE 
             net_transport NOT IN ('Session', 'TCP', 'Shared Memory')
-        FOR XML PATH, ROOT('Protocolos_de_Rede')
+        FOR XML PATH, ROOT('Instalacao_Protocolos_de_Rede')
     )
     
-    
-    INSERT INTO #Resultado
-    (
-        Id_Verificacao,
-        Ds_Categoria,
-        Ds_Titulo,
-        Ds_Resultado,
-        Ds_Descricao,
-        Ds_Verificacao,
-        Ds_Sugestao,
-		Ds_Referencia,
-        Ds_Detalhes
-    )
-    VALUES
-        (
-            608, 
-            'Instalação',
-            'Protocolos de rede não necessários', 
-            (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-            'Essa configuração valida quais os protocolos de rede sendo utilizados na instância. Por padrão, o protocolo TCP/IP é o único necessário, enquanto o Shared Memory é indicado para conexões feita no próprio servidor, e o Named Pipes é uma conexão que deve ser utilizada quando ocorrem problemas no TCP/IP',
-            'Verifica se quais os protocolos de rede utilizados na sys.dm_exec_connections',
-            'Desative os protocolos de rede que não são estritamente necessários, como o VIVA, Named Pipes e Shared Memory',
-            'https://blogs.msdn.microsoft.com/securesql/2018/03/the-sql-server-defensive-dozen-part-1-hardening-sql-network-components/',
-            @Resultado
-        )
 
-        
+	IF (@language = 'pt')
+	BEGIN
+		
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+			Ds_Detalhes = @Resultado
+		WHERE 
+			Id_Verificacao = 608
+
+	END
+	ELSE IF (@language = 'en')
+	BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+			Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Instalacao_Protocolos_de_Rede>', 'Installation_Network_Protocols>')
+		WHERE 
+			Id_Verificacao = 608
+		
+	END
+
+    
 
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se o Firewall do Windows está ativado
@@ -4460,39 +5936,36 @@ WHERE
                 SELECT
                     'SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile' AS [Chave],
                     @Windows_Firewall AS [EnableFirewall]
-                FOR XML PATH, ROOT('Windows_Firewall')
+                FOR XML PATH, ROOT('Instalacao_Windows_Firewall')
             )
 
         END
 
+
+		IF (@language = 'pt')
+		BEGIN
+		
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 609
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Instalacao_Windows_Firewall>', 'Installation_Windows_Firewall>')
+			WHERE 
+				Id_Verificacao = 609
+		
+		END
+
         
-    
-        INSERT INTO #Resultado
-        (
-            Id_Verificacao,
-            Ds_Categoria,
-            Ds_Titulo,
-            Ds_Resultado,
-            Ds_Descricao,
-            Ds_Verificacao,
-            Ds_Sugestao,
-		    Ds_Referencia,
-            Ds_Detalhes
-        )
-        VALUES
-            (
-                609, 
-                'Instalação',
-                'Windows Firewall desativado', 
-                (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END), 
-                'Essa configuração valida se o Firewall do Windows está ativado no servidor',
-                'Verifica no registro do Windows se o Firewall está ativo',
-                'Verifique se existe outro software de Firewall no servidor. Caso não tenha, ative o Firewall do Windows',
-                NULL,
-                @Resultado
-            )
-
-
     END
 
 
@@ -4501,23 +5974,46 @@ WHERE
     -- Mostra os resultados
     ---------------------------------------------------------------------------------------------------------------
     
-    SELECT 
-        Id_Verificacao AS [Código],
-        Ds_Categoria AS [Categoria],
-        Ds_Titulo AS [O que é verificado],
-        Ds_Resultado AS [Avaliação],
-        Ds_Descricao AS [Descrição do Problema],
-        Ds_Verificacao AS [Detalhamento da Verificação],
-        Ds_Sugestao AS [Sugestão de Correção],
-        Ds_Detalhes AS [Resultados da Validação],
-        CONVERT(XML, Ds_Referencia) AS [URL de Referência]
-    FROM 
-        #Resultado
+	IF (@language = 'en')
+	BEGIN
+
+		SELECT 
+			Id_Verificacao AS [Code],
+			Ds_Categoria AS [Category],
+			Ds_Titulo AS [Title],
+			Ds_Resultado AS [Result],
+			Ds_Descricao AS [How this can be an Issue],
+			Ds_Verificacao AS [Technical explanation],
+			Ds_Sugestao AS [How to Fix],
+			Ds_Detalhes AS [Result Details],
+			CONVERT(XML, Ds_Referencia) AS [External Reference]
+		FROM 
+			#Resultado
+
+	END
+	ELSE IF (@language = 'pt')
+	BEGIN
+		
+		SELECT 
+			Id_Verificacao AS [Código],
+			Ds_Categoria AS [Categoria],
+			Ds_Titulo AS [O que é verificado],
+			Ds_Resultado AS [Avaliação],
+			Ds_Descricao AS [Descrição do Problema],
+			Ds_Verificacao AS [Detalhamento da Verificação],
+			Ds_Sugestao AS [Sugestão de Correção],
+			Ds_Detalhes AS [Resultados da Validação],
+			CONVERT(XML, Ds_Referencia) AS [URL de Referência]
+		FROM 
+			#Resultado
+
+	END
  
 
 END
 
 
 
--- EXEC dbo.stpChecklist_Seguranca
+-- EXEC dbo.stpSecurity_Checklist
 
+GO
