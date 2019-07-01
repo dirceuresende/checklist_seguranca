@@ -2580,7 +2580,7 @@ BEGIN
         UPDATE #Resultado
         SET 
             Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
-            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Erro_Login_Senha_Incorreta>', 'SA_User_Enabled>')
+            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuario_SA_Habilitado>', 'SA_User_Enabled>')
         WHERE 
             Id_Verificacao = 101
         
