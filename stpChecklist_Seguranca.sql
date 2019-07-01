@@ -1136,7 +1136,7 @@ BEGIN
             ),
             (
                 200, 
-                'Programação',
+                'Programming',
                 'xp_cmdshell', 
                 NULL, 
                 'Configuration that allows to execute malicious commands inside the database using xp_cmdshell',
@@ -2580,7 +2580,7 @@ BEGIN
         UPDATE #Resultado
         SET 
             Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
-            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Erro_Login_Senha_Incorreta>', 'SA_User_Enabled>')
+            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuario_SA_Habilitado>', 'SA_User_Enabled>')
         WHERE 
             Id_Verificacao = 101
         
@@ -2655,7 +2655,7 @@ WHERE
         UPDATE #Resultado
         SET 
             Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found (' + CAST(@Quantidade AS VARCHAR(10)) + ' users)' END),
-            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Orfaos>', 'Orphaned_Users>')
+            Ds_Detalhes = REPLACE(REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Orfaos>', 'Orphaned_Users>'), '<Usuario ', '<User '), 'usuario=', 'user=')
         WHERE 
             Id_Verificacao = 102
         
@@ -4324,7 +4324,7 @@ WHERE
         UPDATE #Resultado
         SET 
             Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
-            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_DB_Owners>', 'Users_DB_Owner>')
+            Ds_Detalhes = REPLACE(REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_DB_Owners>', 'Users_DB_Owner>'), '<Usuario ', '<User '), 'usuario=', 'user=')
         WHERE 
             Id_Verificacao = 405
         
