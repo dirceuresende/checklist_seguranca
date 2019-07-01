@@ -1136,7 +1136,7 @@ BEGIN
             ),
             (
                 200, 
-                'Programação',
+                'Programming',
                 'xp_cmdshell', 
                 NULL, 
                 'Configuration that allows to execute malicious commands inside the database using xp_cmdshell',
