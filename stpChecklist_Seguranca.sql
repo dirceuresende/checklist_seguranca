@@ -1,3 +1,6 @@
+-- EXEC dbo.stpSecurity_Checklist
+
+GO
 IF (OBJECT_ID('dbo.stpSecurity_Checklist') IS NULL) EXEC('CREATE PROCEDURE dbo.stpSecurity_Checklist AS SELECT 1')
 GO
 
@@ -280,6 +283,17 @@ BEGIN
                 'Verifica se algum Extended Event (que não os padrões do SQL Server) está habilitado na instância',
                 'Valide se esse XE realmente foi criado pelo time de DBA e não influi em nenhum risco para os usuários',
                 NULL,
+                NULL
+            ),
+			(
+                18, 
+                'Configuração',
+                'AUTO_CLOSE desativado para bancos de dados contidos',
+                NULL, 
+                'Como a autenticação de usuários para bancos de dados contidos ocorre no banco de dados e não no nível do servidor \ instância, o banco de dados deve ser aberto sempre para autenticar um usuário. A abertura / fechamento frequente do banco de dados consome recursos adicionais do servidor e pode contribuir para uma negação de serviço.',
+                'Verifica se algum banco de dados contido tem AUTO_CLOSE ativado.',
+                'Essa configuração deve ser desativada para interromper a abertura e o fechamento frequentes de conexões de bancos de dados',
+                'https://docs.microsoft.com/pt-br/sql/relational-databases/databases/security-best-practices-with-contained-databases?view=sql-server-2017',
                 NULL
             ),
             (
@@ -1033,6 +1047,17 @@ BEGIN
                 'Checks if any Extended Event (other than SQL Server defaults) is enabled on the instance',
                 'Validate if this XE was actually created by the DBA team and does not influence any risk to users',
                 NULL,
+                NULL
+            ),
+			(
+                18, 
+                'Configurations',
+                'Auto Close disabled for Contained Databases',
+                NULL, 
+                'Because authentication of users for contained databases occurs within the database not at the server\instance level, the database must be opened every time to authenticate a user. The frequent opening/closing of the database consumes additional server resources and may contribute to a denial of service.',
+                'Checks if any contained databases has AUTO_CLOSE enabled',
+                'This setting should be disabled to stop frequent opening and closing of databases connections',
+                'https://docs.microsoft.com/en-us/sql/relational-databases/databases/security-best-practices-with-contained-databases?view=sql-server-2017',
                 NULL
             ),
             (
@@ -2485,6 +2510,51 @@ BEGIN
             Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_XE_Habilitado>', 'Extended_Event_Enabled>')
         WHERE 
             Id_Verificacao = 17
+        
+    END
+
+
+    ---------------------------------------------------------------------------------------------------------------
+    -- Verify 'AUTO_CLOSE' is set to 'OFF' on contained 
+    ---------------------------------------------------------------------------------------------------------------
+
+    SET @Resultado = NULL
+
+    SET @Resultado = (
+        SELECT 
+			name AS 'Contained/@name',
+			containment AS 'Contained/@containment', 
+			containment_desc AS 'Contained/@contaiment_type', 
+			is_auto_close_on AS 'Contained/@auto_close'
+		FROM 
+			sys.databases
+		WHERE 
+			containment <> 0 
+			AND is_auto_close_on <> 0
+		FOR XML PATH(''), ROOT('Configuracao_AC_Habilitado'), TYPE
+    )
+
+
+    IF (@language = 'pt')
+    BEGIN
+        
+        UPDATE #Resultado
+        SET 
+            Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+            Ds_Detalhes = @Resultado
+        WHERE 
+            Id_Verificacao = 18
+
+    END
+    ELSE IF (@language = 'en')
+    BEGIN
+
+        UPDATE #Resultado
+        SET 
+            Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_AC_Habilitado>', 'Contained_AC_Enabled>')
+        WHERE 
+            Id_Verificacao = 18
         
     END
 
