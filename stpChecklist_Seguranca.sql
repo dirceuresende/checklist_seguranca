@@ -11,7 +11,7 @@ GO
 --
 --------------------------------------------------------------------------------------------------------------------
 
-CREATE OR ALTER PROCEDURE dbo.stpSecurity_Checklist (
+ALTER PROCEDURE dbo.stpSecurity_Checklist (
     @language VARCHAR(2) = NULL,
     @heavy_operations BIT = 1
 )
