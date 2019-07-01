@@ -20,6 +20,7 @@ After using sp_Blitz from Brent Ozar, which I think that is incredible, practica
 Stored Procedure official article: 
 https://www.dirceuresende.com/blog/stpsecurity_checklist-best-practices-and-security-checklist-for-sql-server/
 
+# Checklist de Segurança (Portuguese version)
 Você é Brasileiro ou fala Português?
 Saiba que essa Stored Procedure tem suporte atualmente para 2 idiomas (English e Português). Para orientações de utilização, veja o README_ptbr.md ou acesse o artigo em português dessa Stored Procedure:
 https://www.dirceuresende.com/blog/sql-server-checklist-de-seguranca-uma-sp-com-mais-de-70-itens-de-seguranca-para-validar-seu-banco-de-dados/
