@@ -4324,7 +4324,7 @@ WHERE
         UPDATE #Resultado
         SET 
             Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
-            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_DB_Owners>', 'Users_DB_Owner>')
+            Ds_Detalhes = REPLACE(REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_DB_Owners>', 'Users_DB_Owner>'), '<Usuario ', '<User '), 'usuario=', 'user=')
         WHERE 
             Id_Verificacao = 405
         
