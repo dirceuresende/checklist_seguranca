@@ -2655,7 +2655,7 @@ WHERE
         UPDATE #Resultado
         SET 
             Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found (' + CAST(@Quantidade AS VARCHAR(10)) + ' users)' END),
-            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Orfaos>', 'Orphaned_Users>')
+            Ds_Detalhes = REPLACE(REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Usuarios_Orfaos>', 'Orphaned_Users>'), '<Usuario ', '<User '), 'usuario=', 'user=')
         WHERE 
             Id_Verificacao = 102
         
