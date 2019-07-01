@@ -1,20 +1,25 @@
-# Checklist de Segurança
-Fala pessoal!
-Nesse repositório eu gostaria de compartilhar com vocês um projeto que venho desenvolvendo desde novembro de 2018 e hoje conta com mais de 4.500 linhas de código, que é um Checklist de Segurança bem completo (provavelmente, o mais completo e abrangente que você encontrará na Internet), contando com mais de 70 itens de Segurança para validar seu banco de dados, passando pela parte de configurações e parâmetros, permissões, objetos de programação e muito mais!
+# Security Checklist
+Hello Guys!
+In this repository, I would like to share with you a project that I have been developing since November 2018 and today has more than 6,000 lines of code, which is a very complete Security Checklist (probably the most complete and comprehensive you'll find on the Internet), with more than 70 security items to validate your database, going through the part of settings and parameters, permissions, programming objects and much more!!
 
-Os resultados das verificações estão organizados da seguinte forma:
-+ **Código**: Apenas um número único para facilitar a identificação do item de verificação, inclusive quando eu liberar a versão em inglês (spoiler!!)
-+ **Categoria**: Uma forma de agrupar as verificações de acordo com uma categoria lógica que imaginei para essas validações
-+ **O que é verificado**: Título da verificação, que é um resumo do que esse item está validando no banco de dados
-+ **Avaliação**: É o resultado da validação. Ela informa se o item passou na validação (OK), se é apenas um item informativo ou se identificou um POSSÍVEL problema
-+ **Descrição do Problema**: Uma breve explicação sobre o motivo desse item estar sendo verificado e qual o risco de segurança que ele pode nos trazer
-+ **Detalhamento da Verificação**: Detalhes mais técnicos e específicos do que está sendo verificado na instância
-+ **Sugestão de Correção**: Algumas orientações de como corrigir ou contornar o possível problema identificado pela Stored Procedure
-+ **Resultados da Validação**: XML que retorna os registros que causaram a falha da validação e os artefatos identificados (alguns itens são limitados a TOP(N) registros, pois podem tem muitos registros retornados no XML)
-+ **URL de Referência**: Link de algum artigo ou documentação que possa agregar ou ajudar no entendimento desse item de verificação
-Esse é um projeto que utilizo em vários clientes aqui na Fabrício Lima, um das melhores consultorias de banco de dados e BI do Brasil, e é o resultado de bastante estudo, testes e discussões técnicas com várias grandes profissionais da área de dados e depois de conversar com o Fabrício, resolvemos liberar isso de forma GRATUITA para toda a comunidade técnica.
+The results of the checks are organized as follows:
++ **Code**: A unique number to easily identity the validation item
++ **Category**: A way to group the checks according to a logical category I envisioned for these validations
++ **Title**: Verification title, which is a summary of what this item is validating in the database
++ **Result**: Is the result of validation. It informs if the item passed the validation (OK), if it is only an informative item or if it has identified a POSSIBLE problem
++ **How this can be an Issue**: A brief explanation of why this item is being scanned and what security risk it can bring us
++ **Technical explanation**: More technical and specific details of what is being checked on the instance
++ **How to Fix**: Some guidelines on how to correct or circumvent the possible problem identified by the Stored Procedure
++ **Result Details**: XML that returns the records that caused the validation failure and the artifacts identified (some items are limited to TOP (N) records because they can have many records returned in XML)
++ **External Reference**: Link to a article or documentation that might assist in understanding this verification item
 
-Esse não é um projeto do Dirceu ou do Fabrício, e sim de vocês. Por este motivo, estou liberando o código dessa Stored Procedure no Github, para que todos vocês possam baixar, utilizar em seus ambientes e ajudar a deixá-la cada vez melhor através de commit’s e pull requests para trazer novos recursos e correções
+This is a project that I ran in several clients here at  Fabrício Lima – Soluções em BD , one of the best BI and SQL Server consulting companies in Brazil, and this is the result of a lot of study, tests and technical discussions with several great professionals of the data platform area and after talking with Fabrício, we decided to release it in a FREE way for the entire technical community.
 
-Artigo dessa Stored Procedure: 
+After using sp_Blitz from Brent Ozar, which I think that is incredible, practical and simple to find a lot of items to check performance, maintenance, auditing, and some security features. Thinking of something as practical as this, I was inspired by this idea to develop stpSecurity_Checklist, trying to deliver something as practical as a “F5” to you.
+
+Stored Procedure official article: 
+https://www.dirceuresende.com/blog/stpsecurity_checklist-best-practices-and-security-checklist-for-sql-server/
+
+Você é Brasileiro ou fala Português?
+Saiba que essa Stored Procedure tem suporte atualmente para 2 idiomas (English e Português). Para orientações de utilização, veja o README_ptbr.md ou acesse o artigo em português dessa Stored Procedure:
 https://www.dirceuresende.com/blog/sql-server-checklist-de-seguranca-uma-sp-com-mais-de-70-itens-de-seguranca-para-validar-seu-banco-de-dados/
