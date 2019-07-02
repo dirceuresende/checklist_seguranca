@@ -125,7 +125,7 @@ BEGIN
                 'Configuração',
                 'Autenticação Windows Apenas',
                 NULL, 
-                'Configuração que permite a autenticação utilizando Segurança Integrada do Windows (mais seguro), mas também autenticação SQL Server, utiliando usuário e senha (menos seguro). Essa configuração não é exatamente um problema, pois existem aplicações legadas que requerem autenticação SQL Server, mas é uma boa prática evitar esse cenário, quando possível.',
+                'Configuração que permite a autenticação utilizando Segurança Integrada do Windows (mais seguro), mas também autenticação SQL Server, utilizando usuário e senha (menos seguro). Essa configuração não é exatamente um problema, pois existem aplicações legadas que requerem autenticação SQL Server, mas é uma boa prática evitar esse cenário, quando possível.',
                 'Verifica se a instância está permitindo conexões de logins SQL Server',
                 'Desativar a autenticação de logins SQL Server, quando possível',
                 'https://docs.microsoft.com/pt-br/sql/relational-databases/security/choose-an-authentication-mode?view=sql-server-2017',
