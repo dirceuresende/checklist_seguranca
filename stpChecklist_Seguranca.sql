@@ -296,6 +296,17 @@ BEGIN
                 'https://docs.microsoft.com/pt-br/sql/relational-databases/databases/security-best-practices-with-contained-databases?view=sql-server-2017',
                 NULL
             ),
+			(
+                19, 
+                'Configuração',
+                'Número baixo de registros de erros retidos',
+                NULL, 
+                'Os arquivos de log de erros do SQL Server devem ser protegidos contra perda.',
+                'Os arquivos de log devem ser submetidos a backup antes de serem sobrescritos. Freqüentemente, um SQL Server é reiniciado várias vezes para tentar resolver um problema. Isso faz com que o log de erros seja reciclado e você perderá informações importantes sobre a solução de problemas. Este é um item marcado do Center for Internet Security (CIS).',
+                'Ajuste o número de logs para evitar perda de dados. O valor padrão de 6 talvez seja insuficiente para um ambiente de produção.',
+                'https://www.brentozar.com/archive/2015/09/forgotten-maintenance-cycling-the-sql-server-error-log/',
+                NULL
+            ),
             (
                 100, 
                 'Segurança de Usuários',
@@ -1080,6 +1091,17 @@ BEGIN
                 'Checks if any contained databases has AUTO_CLOSE enabled',
                 'This setting should be disabled to stop frequent opening and closing of databases connections',
                 'https://docs.microsoft.com/en-us/sql/relational-databases/databases/security-best-practices-with-contained-databases?view=sql-server-2017',
+                NULL
+            ),
+			(
+                19, 
+                'Configurations',
+                'Low number of Error Logs retained',
+                NULL, 
+                'SQL Server	error log files must be protected from loss.',
+                'The log files must be backed up before they are overwritten. Frequently a SQL Server is restarted multiple times to try and solve a problem. This causes the error log to recycle and you lose important troubleshooting information. This is a scored item from the Center for Internet Security (CIS).',
+                'Adjust the number of logs to prevent data loss. The default value of 6 maybe insufficient for a production environment. ',
+                'https://www.brentozar.com/archive/2015/09/forgotten-maintenance-cycling-the-sql-server-error-log/',
                 NULL
             ),
             (
@@ -2602,6 +2624,50 @@ BEGIN
         
     END
 
+	---------------------------------------------------------------------------------------------------------------
+    -- Verify Max Number Error Log's are greater than the default
+    ---------------------------------------------------------------------------------------------------------------
+    
+	SET @Resultado = NULL
+	DECLARE @NumErrorLogs int;
+	DECLARE @ErrorLog int;
+
+	EXEC master.sys.xp_instance_regread N'HKEY_LOCAL_MACHINE',N'Software\Microsoft\MSSQLServer\MSSQLServer',N'NumErrorLogs',@NumErrorLogs OUTPUT;
+
+	SET @ErrorLog = (SELECT CASE WHEN @NumErrorLogs >=12 THEN NULL ELSE 1 END)
+	SET @NumErrorLogs = CASE WHEN @ErrorLog IS NULL THEN NULL ELSE @NumErrorLogs END
+
+    SET @Resultado = (
+        SELECT @ErrorLog AS 'ErrorLogs/@ErrorLog'
+			,@NumErrorLogs AS 'ErrorLogs/@NumberOfLogFiles'
+		ORDER BY 1
+		FOR XML PATH(''), ROOT('Configuracao_EL_Habilitado'), TYPE
+    )
+
+	SET @Resultado = (SELECT CASE WHEN CAST(@Resultado AS VARCHAR(MAX)) = '<Configuracao_EL_Habilitado/>' THEN NULL ELSE @Resultado END)
+
+    IF (@language = 'pt')
+    BEGIN
+        
+        UPDATE #Resultado
+        SET 
+            Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+            Ds_Detalhes = @Resultado
+        WHERE 
+            Id_Verificacao = 19
+
+    END
+    ELSE IF (@language = 'en')
+    BEGIN
+
+        UPDATE #Resultado
+        SET 
+            Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_EL_Habilitado>', 'Error_Log>')
+        WHERE 
+            Id_Verificacao = 19
+        
+    END
 
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se existem erros no log de falha de login
