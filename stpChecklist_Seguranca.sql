@@ -395,6 +395,17 @@ BEGIN
                 'https://www.dirceuresende.com/blog/sql-server-como-ocultar-os-databases-para-usuarios-nao-autorizados/',
                 NULL
             ),
+			(
+                109, 
+                'Segurança de Usuários',
+                'Grupos do Windows BUILTIN', 
+                NULL, 
+                'Por padrão, esse grupo tem direitos de administrador do sistema do SQL Server para o SQL Server quando ele é instalado. O mesmo nível de direitos padrão também é concedido ao grupo BUILTIN\Administrators no SQL Server 2005 durante a instalação.',
+                'Os grupos BUILTIN (Administradores, Todos, Usuários Autenticados, Convidados, etc.) geralmente contêm associações muito amplas que não atendem à melhor prática de garantir que apenas os usuários necessários tenham acesso a uma instância do SQL Server. Esses grupos não devem ser usados ​​para qualquer nível de acesso em uma instância do Mecanismo de Banco de Dados do SQL Server.',
+                'O BUILTIN em grupos pode ser facilmente removido do SQL Server para evitar esse problema de segurança, mas antes você deve criar um grupo AD mais restritivo contendo apenas as contas de usuário necessárias',
+                'https://www.mssqltips.com/sqlservertip/1017/security-issues-with-the-sql-server-builtin-administrators-group/',
+                NULL
+            ),
             (
                 200, 
                 'Programação',
@@ -1157,6 +1168,17 @@ BEGIN
                 'Analyze in DMV sys.server_permissions if any user with SQL authentication has VIEW ANY DATABASE permission',
                 'Remove the VIEW ANY DATABASE permission from the default public role and all users who do not access SQL Server through SSMS, especially systems. Using the AD Domain\Domain Users group may be a safer alternative to public',
                 'https://www.dirceuresende.com/blog/sql-server-como-ocultar-os-databases-para-usuarios-nao-autorizados/',
+                NULL
+            ),
+			(
+                109, 
+                'User Security',
+                'Windows BUILTIN Groups', 
+                NULL, 
+                'By default this group has SQL Server System Administrator rights to SQL Server when it is installed.  The same level of default rights are also granted to BUILTIN\Administrators group in SQL Server 2005 during the installation.',
+                'The BUILTIN groups	(Administrators, Everyone, Authenticated Users,	Guests,	etc.) generally contain very broad memberships which would not meet	the	best practice of ensuring only the necessary users have been granted access to a SQL Server instance. These groups should not be used for any level of access into a SQL Server Database Engine instance.',
+                'The BUILTIN in groups can easily be removed from SQL Server to prevent this security issue, but before you should create a more restrictive AD group containing only required user accounts',
+                'https://www.mssqltips.com/sqlservertip/1017/security-issues-with-the-sql-server-builtin-administrators-group/',
                 NULL
             ),
             (
@@ -3240,7 +3262,50 @@ WHERE
         
     END
 
+    ---------------------------------------------------------------------------------------------------------------
+    -- BUILTIN SQL Permissions
+    ---------------------------------------------------------------------------------------------------------------
     
+    SET @Resultado = NULL
+
+    SET @Resultado = (
+       SELECT 
+			pr.[name] AS 'Login/@name',
+			pe.[permission_name] AS 'Login/@permission_name',
+			pe.[state_desc] AS 'Login/@state_desc'
+		FROM
+			sys.server_principals pr JOIN sys.server_permissions pe
+			ON pr.principal_id = pe.grantee_principal_id
+		WHERE 
+			pr.name like 'BUILTIN%'
+        FOR XML PATH(''), ROOT('Permissao_BUILTIN'), TYPE
+    )
+    
+
+    IF (@language = 'pt')
+    BEGIN
+        
+        UPDATE #Resultado
+        SET 
+            Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+            Ds_Detalhes = @Resultado
+        WHERE 
+            Id_Verificacao = 109
+
+    END
+    ELSE IF (@language = 'en')
+    BEGIN
+
+        UPDATE #Resultado
+        SET 
+            Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+            Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Permissao_BUILTIN>', 'Users_BUILTIN>'), '<Usuario ', '<User ')
+        WHERE 
+            Id_Verificacao = 109
+        
+    END
+
+        
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se comandos xp_cmdshell estão permitidos na instância
     ---------------------------------------------------------------------------------------------------------------
