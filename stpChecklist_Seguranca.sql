@@ -1,6 +1,3 @@
--- EXEC dbo.stpSecurity_Checklist
-
-GO
 IF (OBJECT_ID('dbo.stpSecurity_Checklist') IS NULL) EXEC('CREATE PROCEDURE dbo.stpSecurity_Checklist AS SELECT 1')
 GO
 
@@ -20,6 +17,9 @@ ALTER PROCEDURE dbo.stpSecurity_Checklist (
 )
 AS 
 BEGIN
+
+
+    -- DECLARE @language VARCHAR(2) = 'pt', @heavy_operations BIT = 1
 
 
     SET NOCOUNT ON
@@ -2632,9 +2632,13 @@ BEGIN
 	DECLARE @NumErrorLogs int;
 	DECLARE @ErrorLog int;
 
-	EXEC master.sys.xp_instance_regread N'HKEY_LOCAL_MACHINE',N'Software\Microsoft\MSSQLServer\MSSQLServer',N'NumErrorLogs',@NumErrorLogs OUTPUT;
+	EXEC master.sys.xp_instance_regread 
+        N'HKEY_LOCAL_MACHINE',
+        N'Software\Microsoft\MSSQLServer\MSSQLServer',
+        N'NumErrorLogs',
+        @NumErrorLogs OUTPUT;
 
-	SET @ErrorLog = (SELECT CASE WHEN @NumErrorLogs >=12 THEN NULL ELSE 1 END)
+	SET @ErrorLog = (SELECT CASE WHEN ISNULL(@NumErrorLogs, 0) >= 12 THEN NULL ELSE 1 END)
 	SET @NumErrorLogs = CASE WHEN @ErrorLog IS NULL THEN NULL ELSE @NumErrorLogs END
 
     SET @Resultado = (
@@ -6002,8 +6006,9 @@ WHERE
         SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=beta', '')
 
         -- Corrigindo elementos não fechados corretamente
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '<th', '</th><th')
+        SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>', '</th><th>')
         SET @RetornoTabela = REPLACE(@RetornoTabela, '<tr></th>', '<tr>')
+        SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>Build<th ', '<th>Build</th><th ')
         SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>Release Date</tr>', '<th>Release Date</th></tr>')
 
         SET @RetornoTabela = REPLACE(@RetornoTabela, '<td>', '</td><td>')
@@ -6018,14 +6023,10 @@ WHERE
         SET @RetornoTabela = REPLACE(@RetornoTabela, '&kbln', '&amp;kbln')
         SET @RetornoTabela = REPLACE(@RetornoTabela, '<br>', '<br/>')
 
-		BEGIN TRY
-	        SET @dadosXML = CONVERT(XML, @RetornoTabela)
-		END TRY
-		BEGIN CATCH
-			SET @dadosXML = NULL
-		END CATCH
+        
+        SET @dadosXML = CONVERT(XML, @RetornoTabela)
 
-
+        
         DECLARE @Atualizacoes_SQL_Server TABLE
         (
             [Ultimo_Build] VARCHAR(100),
@@ -6038,49 +6039,32 @@ WHERE
             [Download_Ultimo_Build] VARCHAR(100)
         )
 
+
+        INSERT INTO @Atualizacoes_SQL_Server
+        SELECT
+            @dadosXML.value('(//table/tr/td[1])[1]','varchar(100)') AS Ultimo_Build,
+            @dadosXML.value('(//table/tr/td[2])[1]','varchar(100)') AS [Ultimo_Build_SQLSERVR.EXE],
+            @dadosXML.value('(//table/tr/td[3])[1]','varchar(100)') AS Versao_Arquivo,
+            @dadosXML.value('(//table/tr/td[4])[1]','varchar(100)') AS [Q],
+            @dadosXML.value('(//table/tr/td[5])[1]','varchar(100)') AS KB,
+            @dadosXML.value('(//table/tr/td[6]/a)[1]','varchar(100)') AS Descricao_KB,
+            @dadosXML.value('(//table/tr/td[7])[1]','varchar(100)') AS Lancamento_KB,
+            @dadosXML.value('(//table/tr/td[6]/a/@href)[1]','varchar(100)') AS Download_Ultimo_Build
+    
+
+        DECLARE 
+            @Url_Ultima_Versao_SQL VARCHAR(500) = (SELECT TOP(1) Download_Ultimo_Build FROM @Atualizacoes_SQL_Server),
+            @Ultimo_Build VARCHAR(100) = (SELECT TOP(1) Ultimo_Build FROM @Atualizacoes_SQL_Server)
+
         SET @Resultado = NULL
 
-		IF (@dadosXML IS NOT NULL)
-		BEGIN
-		
-			INSERT INTO @Atualizacoes_SQL_Server
-			SELECT
-				@dadosXML.value('(//table/tr/td[1])[1]','varchar(100)') AS Ultimo_Build,
-				@dadosXML.value('(//table/tr/td[2])[1]','varchar(100)') AS [Ultimo_Build_SQLSERVR.EXE],
-				@dadosXML.value('(//table/tr/td[3])[1]','varchar(100)') AS Versao_Arquivo,
-				@dadosXML.value('(//table/tr/td[4])[1]','varchar(100)') AS [Q],
-				@dadosXML.value('(//table/tr/td[5])[1]','varchar(100)') AS KB,
-				@dadosXML.value('(//table/tr/td[6]/a)[1]','varchar(100)') AS Descricao_KB,
-				@dadosXML.value('(//table/tr/td[7])[1]','varchar(100)') AS Lancamento_KB,
-				@dadosXML.value('(//table/tr/td[6]/a/@href)[1]','varchar(100)') AS Download_Ultimo_Build
-		
+    
+        SET @Resultado = (
+            SELECT *
+            FROM @Atualizacoes_SQL_Server
+            FOR XML PATH, ROOT('Instalacao_Atualizacoes_SQL')
+        )
 
-			DECLARE 
-				@Url_Ultima_Versao_SQL VARCHAR(500) = (SELECT TOP(1) Download_Ultimo_Build FROM @Atualizacoes_SQL_Server),
-				@Ultimo_Build VARCHAR(100) = (SELECT TOP(1) Ultimo_Build FROM @Atualizacoes_SQL_Server)
-
-		
-			SET @Resultado = (
-				SELECT *
-				FROM @Atualizacoes_SQL_Server
-				FOR XML PATH, ROOT('Instalacao_Atualizacoes_SQL')
-			)
-			
-		END
-		ELSE
-		BEGIN
-		
-			IF (@language = 'en')
-			BEGIN
-			
-				SET @Resultado = (
-					SELECT 'Could not parse most recent version information from http://sqlserverbuilds.blogspot.com/'
-					FOR XML PATH, ROOT('Instalacao_Atualizacoes_SQL')
-				)
-				
-			END
-			
-		END
 
         IF (@language = 'pt')
         BEGIN
@@ -6304,4 +6288,4 @@ END
 
 -- EXEC dbo.stpSecurity_Checklist
 
-GO
+
