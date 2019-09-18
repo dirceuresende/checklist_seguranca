@@ -6038,32 +6038,49 @@ WHERE
             [Download_Ultimo_Build] VARCHAR(100)
         )
 
-
-        INSERT INTO @Atualizacoes_SQL_Server
-        SELECT
-            @dadosXML.value('(//table/tr/td[1])[1]','varchar(100)') AS Ultimo_Build,
-            @dadosXML.value('(//table/tr/td[2])[1]','varchar(100)') AS [Ultimo_Build_SQLSERVR.EXE],
-            @dadosXML.value('(//table/tr/td[3])[1]','varchar(100)') AS Versao_Arquivo,
-            @dadosXML.value('(//table/tr/td[4])[1]','varchar(100)') AS [Q],
-            @dadosXML.value('(//table/tr/td[5])[1]','varchar(100)') AS KB,
-            @dadosXML.value('(//table/tr/td[6]/a)[1]','varchar(100)') AS Descricao_KB,
-            @dadosXML.value('(//table/tr/td[7])[1]','varchar(100)') AS Lancamento_KB,
-            @dadosXML.value('(//table/tr/td[6]/a/@href)[1]','varchar(100)') AS Download_Ultimo_Build
-    
-
-        DECLARE 
-            @Url_Ultima_Versao_SQL VARCHAR(500) = (SELECT TOP(1) Download_Ultimo_Build FROM @Atualizacoes_SQL_Server),
-            @Ultimo_Build VARCHAR(100) = (SELECT TOP(1) Ultimo_Build FROM @Atualizacoes_SQL_Server)
-
         SET @Resultado = NULL
 
-    
-        SET @Resultado = (
-            SELECT *
-            FROM @Atualizacoes_SQL_Server
-            FOR XML PATH, ROOT('Instalacao_Atualizacoes_SQL')
-        )
+		IF (@dadosXML IS NOT NULL)
+		BEGIN
+		
+			INSERT INTO @Atualizacoes_SQL_Server
+			SELECT
+				@dadosXML.value('(//table/tr/td[1])[1]','varchar(100)') AS Ultimo_Build,
+				@dadosXML.value('(//table/tr/td[2])[1]','varchar(100)') AS [Ultimo_Build_SQLSERVR.EXE],
+				@dadosXML.value('(//table/tr/td[3])[1]','varchar(100)') AS Versao_Arquivo,
+				@dadosXML.value('(//table/tr/td[4])[1]','varchar(100)') AS [Q],
+				@dadosXML.value('(//table/tr/td[5])[1]','varchar(100)') AS KB,
+				@dadosXML.value('(//table/tr/td[6]/a)[1]','varchar(100)') AS Descricao_KB,
+				@dadosXML.value('(//table/tr/td[7])[1]','varchar(100)') AS Lancamento_KB,
+				@dadosXML.value('(//table/tr/td[6]/a/@href)[1]','varchar(100)') AS Download_Ultimo_Build
+		
 
+			DECLARE 
+				@Url_Ultima_Versao_SQL VARCHAR(500) = (SELECT TOP(1) Download_Ultimo_Build FROM @Atualizacoes_SQL_Server),
+				@Ultimo_Build VARCHAR(100) = (SELECT TOP(1) Ultimo_Build FROM @Atualizacoes_SQL_Server)
+
+		
+			SET @Resultado = (
+				SELECT *
+				FROM @Atualizacoes_SQL_Server
+				FOR XML PATH, ROOT('Instalacao_Atualizacoes_SQL')
+			)
+			
+		END
+		ELSE
+		BEGIN
+		
+			IF (@language = 'en')
+			BEGIN
+			
+				SET @Resultado = (
+					SELECT 'Could not parse most recent version information from http://sqlserverbuilds.blogspot.com/'
+					FOR XML PATH, ROOT('Instalacao_Atualizacoes_SQL')
+				)
+				
+			END
+			
+		END
 
         IF (@language = 'pt')
         BEGIN
