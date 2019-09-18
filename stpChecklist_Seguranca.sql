@@ -6018,7 +6018,12 @@ WHERE
         SET @RetornoTabela = REPLACE(@RetornoTabela, '&kbln', '&amp;kbln')
         SET @RetornoTabela = REPLACE(@RetornoTabela, '<br>', '<br/>')
 
-        SET @dadosXML = CONVERT(XML, @RetornoTabela)
+		BEGIN TRY
+	        SET @dadosXML = CONVERT(XML, @RetornoTabela)
+		END TRY
+		BEGIN CATCH
+			SET @dadosXML = NULL
+		END CATCH
 
 
         DECLARE @Atualizacoes_SQL_Server TABLE
