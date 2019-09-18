@@ -6002,7 +6002,7 @@ WHERE
         SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=beta', '')
 
         -- Corrigindo elementos não fechados corretamente
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>', '</th><th>')
+        SET @RetornoTabela = REPLACE(@RetornoTabela, '<th', '</th><th')
         SET @RetornoTabela = REPLACE(@RetornoTabela, '<tr></th>', '<tr>')
         SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>Release Date</tr>', '<th>Release Date</th></tr>')
 
