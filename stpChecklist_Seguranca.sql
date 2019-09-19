@@ -7,7 +7,7 @@ GO
 -- Checklist de segurança para ambientes SQL Server - Mais de 70 validações de segurança!!
 -- 
 -- Precisa de ajuda para corrigir algum problema?
--- contato@fabriciolima.net
+-- comercial@fabriciolima.net
 --
 --------------------------------------------------------------------------------------------------------------------
 
