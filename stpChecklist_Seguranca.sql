@@ -62,13 +62,13 @@ BEGIN
         ELSE 2019
     END)
 
-    
-    SET @language = (CASE
+	
+	SET @language = (CASE
         WHEN NULLIF(LTRIM(RTRIM(@language)), '') IS NULL THEN (SELECT CASE WHEN [value] IN (5, 7, 27) THEN 'pt' ELSE 'en' END FROM sys.configurations WHERE [name] = 'default language')
         ELSE @language 
     END)
 
-    
+	
     ---------------------------------------------------------------------------------------------------------------
     -- Idiomas
     ---------------------------------------------------------------------------------------------------------------
@@ -2586,43 +2586,67 @@ BEGIN
 
     SET @Resultado = NULL
 
-    SET @Resultado = (
-        SELECT 
-			name AS 'Contained/@name',
-			containment AS 'Contained/@containment', 
-			containment_desc AS 'Contained/@contaiment_type', 
-			is_auto_close_on AS 'Contained/@auto_close'
-		FROM 
-			sys.databases
+	IF (@Versao >= 2014)
+	BEGIN
+
+		DECLARE @Configuracao_AC_Habilitado TABLE ( Resultado XML )
+
+		INSERT INTO @Configuracao_AC_Habilitado
+		EXEC('
+			SELECT 
+				[name] AS ''Contained/@name'',
+				containment AS ''Contained/@containment'', 
+				containment_desc AS ''Contained/@contaiment_type'', 
+				is_auto_close_on AS ''Contained/@auto_close''
+			FROM 
+				sys.databases
+			WHERE 
+				containment <> 0 
+				AND is_auto_close_on <> 0
+			FOR XML PATH(''''), ROOT(''Configuracao_AC_Habilitado''), TYPE'
+		)
+
+		SET @Resultado = (
+			SELECT TOP(1)
+				Resultado
+			FROM 
+				@Configuracao_AC_Habilitado
+		)
+
+
+		IF (@language = 'pt')
+		BEGIN
+        
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+				Ds_Detalhes = @Resultado
+			WHERE 
+				Id_Verificacao = 18
+
+		END
+		ELSE IF (@language = 'en')
+		BEGIN
+
+			UPDATE #Resultado
+			SET 
+				Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+				Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_AC_Habilitado>', 'Contained_AC_Enabled>')
+			WHERE 
+				Id_Verificacao = 18
+        
+		END
+
+	END
+	ELSE BEGIN
+
+		UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @language = 'pt' THEN 'Não suportado' ELSE 'Not supported' END)
 		WHERE 
-			containment <> 0 
-			AND is_auto_close_on <> 0
-		FOR XML PATH(''), ROOT('Configuracao_AC_Habilitado'), TYPE
-    )
+			Id_Verificacao = 18
 
-
-    IF (@language = 'pt')
-    BEGIN
-        
-        UPDATE #Resultado
-        SET 
-            Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
-            Ds_Detalhes = @Resultado
-        WHERE 
-            Id_Verificacao = 18
-
-    END
-    ELSE IF (@language = 'en')
-    BEGIN
-
-        UPDATE #Resultado
-        SET 
-            Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
-            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_AC_Habilitado>', 'Contained_AC_Enabled>')
-        WHERE 
-            Id_Verificacao = 18
-        
-    END
+	END
 
 	---------------------------------------------------------------------------------------------------------------
     -- Verify Max Number Error Log's are greater than the default
@@ -6286,6 +6310,5 @@ END
 
 
 
--- EXEC dbo.stpSecurity_Checklist
-
+-- EXEC dbo.stpSecurity_Checklist @language = 'pt'
 
