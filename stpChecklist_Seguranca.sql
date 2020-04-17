@@ -6156,202 +6156,209 @@ WHERE
     -- Verifica a última atualização do SQL Server
     ---------------------------------------------------------------------------------------------------------------
 
-    IF (@IsAmazonRDS = 0)
-    BEGIN
+	BEGIN TRY
 
-        DECLARE @Fl_Ole_Automation_Ativado BIT = (SELECT (CASE WHEN CAST([value] AS VARCHAR(MAX)) = '1' THEN 1 ELSE 0 END) FROM sys.configurations WHERE [name] = 'Ole Automation Procedures')
+		IF (@IsAmazonRDS = 0)
+		BEGIN
+		
+			DECLARE @Fl_Ole_Automation_Ativado BIT = (SELECT (CASE WHEN CAST([value] AS VARCHAR(MAX)) = '1' THEN 1 ELSE 0 END) FROM sys.configurations WHERE [name] = 'Ole Automation Procedures')
  
-        IF (@Fl_Ole_Automation_Ativado = 0)
-        BEGIN
+			IF (@Fl_Ole_Automation_Ativado = 0)
+			BEGIN
  
-            EXEC sp_configure 'show advanced options', 1
-            RECONFIGURE WITH OVERRIDE
+				EXEC sp_configure 'show advanced options', 1
+				RECONFIGURE WITH OVERRIDE
     
-            EXEC sp_configure 'Ole Automation Procedures', 1
-            RECONFIGURE WITH OVERRIDE
+				EXEC sp_configure 'Ole Automation Procedures', 1
+				RECONFIGURE WITH OVERRIDE
     
-        END
+			END
 
 
     
-        DECLARE 
-            @obj INT,
-            @Url VARCHAR(8000),
-            @xml VARCHAR(MAX),
-            @resposta VARCHAR(MAX)
+			DECLARE 
+				@obj INT,
+				@Url VARCHAR(8000),
+				@xml VARCHAR(MAX),
+				@resposta VARCHAR(MAX)
         
-        SET @Url = 'http://sqlserverbuilds.blogspot.com/'
+			SET @Url = 'http://sqlserverbuilds.blogspot.com/'
  
-        EXEC sys.sp_OACreate 'MSXML2.ServerXMLHTTP', @obj OUT
-        EXEC sys.sp_OAMethod @obj, 'open', NULL, 'GET', @Url, false
-        EXEC sys.sp_OAMethod @obj, 'send'
+			EXEC sys.sp_OACreate 'MSXML2.ServerXMLHTTP', @obj OUT
+			EXEC sys.sp_OAMethod @obj, 'open', NULL, 'GET', @Url, false
+			EXEC sys.sp_OAMethod @obj, 'send'
  
  
-        DECLARE @xml_versao_sql TABLE (
-            Ds_Dados VARCHAR(MAX)
-        )
+			DECLARE @xml_versao_sql TABLE (
+				Ds_Dados VARCHAR(MAX)
+			)
  
-        INSERT INTO @xml_versao_sql(Ds_Dados)
-        EXEC sys.sp_OAGetProperty @obj, 'responseText' --, @resposta OUT
+			INSERT INTO @xml_versao_sql(Ds_Dados)
+			EXEC sys.sp_OAGetProperty @obj, 'responseText' --, @resposta OUT
     
     
-        EXEC sys.sp_OADestroy @obj
-
-
-
-        IF (@Fl_Ole_Automation_Ativado = 0)
-        BEGIN
+			EXEC sys.sp_OADestroy @obj
+				
+			
+			IF (@Fl_Ole_Automation_Ativado = 0)
+			BEGIN
  
-            EXEC sp_configure 'Ole Automation Procedures', 0
-            RECONFIGURE WITH OVERRIDE
+				EXEC sp_configure 'Ole Automation Procedures', 0
+				RECONFIGURE WITH OVERRIDE
  
-            EXEC sp_configure 'show advanced options', 0
-            RECONFIGURE WITH OVERRIDE
+				EXEC sp_configure 'show advanced options', 0
+				RECONFIGURE WITH OVERRIDE
  
-        END
- 
-    
-
-        DECLARE
-            @Versao_SQL_Build VARCHAR(10)
-    
-        SET @Versao_SQL_Build = (CASE LEFT(CONVERT(VARCHAR, SERVERPROPERTY('ProductVersion')), 2)
-            WHEN '8.' THEN '2000'
-            WHEN '9.' THEN '2005'
-            WHEN '10' THEN (
-                CASE
-                    WHEN LEFT(CONVERT(VARCHAR, SERVERPROPERTY('ProductVersion')), 4) = '10.5' THEN '2008 R2' 
-                    WHEN LEFT(CONVERT(VARCHAR, SERVERPROPERTY('ProductVersion')), 4) = '10.0' THEN '2008' 
-                END)
-            WHEN '11' THEN '2012'
-            WHEN '12' THEN '2014'
-            WHEN '13' THEN '2016'
-            WHEN '14' THEN '2017'
-            WHEN '15' THEN '2019'
-            ELSE '2019'
-        END)
-
-
-        SELECT TOP 1 @resposta = Ds_Dados FROM @xml_versao_sql
+			END
  
     
-        SET @xml = @resposta COLLATE SQL_Latin1_General_CP1251_CS_AS
 
-        DECLARE
-            @PosicaoInicialVersao INT,
-            @PosicaoFinalVersao INT,
-            @ExpressaoBuscar VARCHAR(100) = 'Microsoft SQL Server ' + @Versao_SQL_Build + ' Builds',
-            @RetornoTabela VARCHAR(MAX),
-            @dadosXML XML
+			DECLARE
+				@Versao_SQL_Build VARCHAR(10)
+    
+			SET @Versao_SQL_Build = (CASE LEFT(CONVERT(VARCHAR, SERVERPROPERTY('ProductVersion')), 2)
+				WHEN '8.' THEN '2000'
+				WHEN '9.' THEN '2005'
+				WHEN '10' THEN (
+					CASE
+						WHEN LEFT(CONVERT(VARCHAR, SERVERPROPERTY('ProductVersion')), 4) = '10.5' THEN '2008 R2' 
+						WHEN LEFT(CONVERT(VARCHAR, SERVERPROPERTY('ProductVersion')), 4) = '10.0' THEN '2008' 
+					END)
+				WHEN '11' THEN '2012'
+				WHEN '12' THEN '2014'
+				WHEN '13' THEN '2016'
+				WHEN '14' THEN '2017'
+				WHEN '15' THEN '2019'
+				ELSE '2019'
+			END)
 
-        SET @PosicaoInicialVersao = CHARINDEX(@ExpressaoBuscar, @xml) + LEN(@ExpressaoBuscar) + 6
-        SET @PosicaoFinalVersao = CHARINDEX('</table>', @xml, @PosicaoInicialVersao)
-        SET @RetornoTabela = SUBSTRING(@xml, @PosicaoInicialVersao, @PosicaoFinalVersao - @PosicaoInicialVersao + 8)
+
+			SELECT TOP 1 @resposta = Ds_Dados FROM @xml_versao_sql
+ 
+    
+			SET @xml = @resposta COLLATE SQL_Latin1_General_CP1251_CS_AS
+
+			DECLARE
+				@PosicaoInicialVersao INT,
+				@PosicaoFinalVersao INT,
+				@ExpressaoBuscar VARCHAR(100) = 'Microsoft SQL Server ' + @Versao_SQL_Build + ' Builds',
+				@RetornoTabela VARCHAR(MAX),
+				@dadosXML XML
+
+			SET @PosicaoInicialVersao = CHARINDEX(@ExpressaoBuscar, @xml) + LEN(@ExpressaoBuscar) + 6
+			SET @PosicaoFinalVersao = CHARINDEX('</table>', @xml, @PosicaoInicialVersao)
+			SET @RetornoTabela = SUBSTRING(@xml, @PosicaoInicialVersao, @PosicaoFinalVersao - @PosicaoInicialVersao + 8)
+
+			
+			-- Corrigindo classes sem aspas duplas ("")
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' border=1 cellpadding=4 cellspacing=0 bordercolor="#CCCCCC" style="border-collapse:collapse"', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' target=_blank rel=nofollow', ' target="_blank" rel="nofollow"')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=h', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=lsp', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=cu', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=sp', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=rtm', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' width=580', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' width=125', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=lcu', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=cve', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=lrtm', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=beta', '')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '<div class="oxa">', '')
+
+			-- Corrigindo elementos não fechados corretamente
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>', '</th><th>')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '<tr></th>', '<tr>')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>Build<th ', '<th>Build</th><th ')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>Release Date</tr>', '<th>Release Date</th></tr>')
+
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '<td>', '</td><td>')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '<tr></td>', '<tr>')
+
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '</tr>', '</td></tr>')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '</th></td>', '</th>')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '</td></td>', '</td>')
+
+			-- Removendo elementos de entidades HTML
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '&nbsp;', ' ')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '&kbln', '&amp;kbln')
+			SET @RetornoTabela = REPLACE(@RetornoTabela, '<br>', '<br/>')
+
+			
+			SET @dadosXML = CONVERT(XML, @RetornoTabela)
+
+			
+			DECLARE @Atualizacoes_SQL_Server TABLE
+			(
+				[Ultimo_Build] VARCHAR(100),
+				[Ultimo_Build_SQLSERVR.EXE] VARCHAR(100),
+				[Versao_Arquivo] VARCHAR(100),
+				[Q] VARCHAR(100),
+				[KB] VARCHAR(100),
+				[Descricao_KB] VARCHAR(100),
+				[Lancamento_KB] VARCHAR(100),
+				[Download_Ultimo_Build] VARCHAR(100)
+			)
 
 
-        -- Corrigindo classes sem aspas duplas ("")
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' border=1 cellpadding=4 cellspacing=0 bordercolor="#CCCCCC" style="border-collapse:collapse"', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' target=_blank rel=nofollow', ' target="_blank" rel="nofollow"')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=h', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=lsp', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=cu', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=sp', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=rtm', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' width=580', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' width=125', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=lcu', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=cve', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=lrtm', '')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, ' class=beta', '')
+			INSERT INTO @Atualizacoes_SQL_Server
+			SELECT
+				@dadosXML.value('(//table/tr/td[1])[1]','varchar(100)') AS Ultimo_Build,
+				@dadosXML.value('(//table/tr/td[2])[1]','varchar(100)') AS [Ultimo_Build_SQLSERVR.EXE],
+				@dadosXML.value('(//table/tr/td[3])[1]','varchar(100)') AS Versao_Arquivo,
+				@dadosXML.value('(//table/tr/td[4])[1]','varchar(100)') AS [Q],
+				@dadosXML.value('(//table/tr/td[5])[1]','varchar(100)') AS KB,
+				@dadosXML.value('(//table/tr/td[6]/a)[1]','varchar(100)') AS Descricao_KB,
+				@dadosXML.value('(//table/tr/td[7])[1]','varchar(100)') AS Lancamento_KB,
+				@dadosXML.value('(//table/tr/td[6]/a/@href)[1]','varchar(100)') AS Download_Ultimo_Build
+    
 
-        -- Corrigindo elementos não fechados corretamente
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>', '</th><th>')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '<tr></th>', '<tr>')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>Build<th ', '<th>Build</th><th ')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '<th>Release Date</tr>', '<th>Release Date</th></tr>')
+			DECLARE 
+				@Url_Ultima_Versao_SQL VARCHAR(500) = (SELECT TOP(1) Download_Ultimo_Build FROM @Atualizacoes_SQL_Server),
+				@Ultimo_Build VARCHAR(100) = (SELECT TOP(1) Ultimo_Build FROM @Atualizacoes_SQL_Server)
 
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '<td>', '</td><td>')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '<tr></td>', '<tr>')
+			SET @Resultado = NULL
 
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '</tr>', '</td></tr>')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '</th></td>', '</th>')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '</td></td>', '</td>')
+    
+			SET @Resultado = (
+				SELECT *
+				FROM @Atualizacoes_SQL_Server
+				FOR XML PATH, ROOT('Instalacao_Atualizacoes_SQL')
+			)
 
-        -- Removendo elementos de entidades HTML
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '&nbsp;', ' ')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '&kbln', '&amp;kbln')
-        SET @RetornoTabela = REPLACE(@RetornoTabela, '<br>', '<br/>')
 
+			IF (@language = 'pt')
+			BEGIN
         
-        SET @dadosXML = CONVERT(XML, @RetornoTabela)
+				UPDATE #Resultado
+				SET 
+					Ds_Resultado = (CASE WHEN CONVERT(VARCHAR(100), SERVERPROPERTY('ProductVersion')) >= @Ultimo_Build THEN 'OK' ELSE 'Possível problema encontrado' END),
+					Ds_Referencia = @Url_Ultima_Versao_SQL,
+					Ds_Detalhes = @Resultado
+				WHERE 
+					Id_Verificacao = 606
 
+			END
+			ELSE IF (@language = 'en')
+			BEGIN
+
+				UPDATE #Resultado
+				SET 
+					Ds_Resultado = (CASE WHEN CONVERT(VARCHAR(100), SERVERPROPERTY('ProductVersion')) >= @Ultimo_Build THEN 'OK' ELSE 'Possible issue found' END),
+					Ds_Referencia = @Url_Ultima_Versao_SQL,
+					Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Instalacao_Atualizacoes_SQL>', 'Installation_SQL_Updates>')
+				WHERE 
+					Id_Verificacao = 606
         
-        DECLARE @Atualizacoes_SQL_Server TABLE
-        (
-            [Ultimo_Build] VARCHAR(100),
-            [Ultimo_Build_SQLSERVR.EXE] VARCHAR(100),
-            [Versao_Arquivo] VARCHAR(100),
-            [Q] VARCHAR(100),
-            [KB] VARCHAR(100),
-            [Descricao_KB] VARCHAR(100),
-            [Lancamento_KB] VARCHAR(100),
-            [Download_Ultimo_Build] VARCHAR(100)
-        )
-
-
-        INSERT INTO @Atualizacoes_SQL_Server
-        SELECT
-            @dadosXML.value('(//table/tr/td[1])[1]','varchar(100)') AS Ultimo_Build,
-            @dadosXML.value('(//table/tr/td[2])[1]','varchar(100)') AS [Ultimo_Build_SQLSERVR.EXE],
-            @dadosXML.value('(//table/tr/td[3])[1]','varchar(100)') AS Versao_Arquivo,
-            @dadosXML.value('(//table/tr/td[4])[1]','varchar(100)') AS [Q],
-            @dadosXML.value('(//table/tr/td[5])[1]','varchar(100)') AS KB,
-            @dadosXML.value('(//table/tr/td[6]/a)[1]','varchar(100)') AS Descricao_KB,
-            @dadosXML.value('(//table/tr/td[7])[1]','varchar(100)') AS Lancamento_KB,
-            @dadosXML.value('(//table/tr/td[6]/a/@href)[1]','varchar(100)') AS Download_Ultimo_Build
+			END
     
 
-        DECLARE 
-            @Url_Ultima_Versao_SQL VARCHAR(500) = (SELECT TOP(1) Download_Ultimo_Build FROM @Atualizacoes_SQL_Server),
-            @Ultimo_Build VARCHAR(100) = (SELECT TOP(1) Ultimo_Build FROM @Atualizacoes_SQL_Server)
+		END
 
-        SET @Resultado = NULL
-
-    
-        SET @Resultado = (
-            SELECT *
-            FROM @Atualizacoes_SQL_Server
-            FOR XML PATH, ROOT('Instalacao_Atualizacoes_SQL')
-        )
-
-
-        IF (@language = 'pt')
-        BEGIN
-        
-            UPDATE #Resultado
-            SET 
-                Ds_Resultado = (CASE WHEN CONVERT(VARCHAR(100), SERVERPROPERTY('ProductVersion')) >= @Ultimo_Build THEN 'OK' ELSE 'Possível problema encontrado' END),
-                Ds_Referencia = @Url_Ultima_Versao_SQL,
-                Ds_Detalhes = @Resultado
-            WHERE 
-                Id_Verificacao = 606
-
-        END
-        ELSE IF (@language = 'en')
-        BEGIN
-
-            UPDATE #Resultado
-            SET 
-                Ds_Resultado = (CASE WHEN CONVERT(VARCHAR(100), SERVERPROPERTY('ProductVersion')) >= @Ultimo_Build THEN 'OK' ELSE 'Possible issue found' END),
-                Ds_Referencia = @Url_Ultima_Versao_SQL,
-                Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Instalacao_Atualizacoes_SQL>', 'Installation_SQL_Updates>')
-            WHERE 
-                Id_Verificacao = 606
-        
-        END
-    
-
-    END
+	END TRY
+	BEGIN CATCH
+	    PRINT 'Error on Validation 606'
+	END CATCH
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -6547,3 +6554,4 @@ END
 
 -- EXEC dbo.stpSecurity_Checklist @language = 'pt'
 -- exec dbo.stpSecurity_Checklist  @language = 'en'
+
