@@ -68,7 +68,43 @@ BEGIN
         ELSE @language 
     END)
 
-	
+	---------------------------------------------------------------------------------------------------------------
+    -- Reference to other Security Test Frameworks
+    ---------------------------------------------------------------------------------------------------------------
+	DECLARE @Reference TABLE 
+	( 
+		CodeID INT
+		, Reference NVARCHAR(500)
+	)
+	INSERT INTO @Reference (CodeID, Reference)
+	VALUES(606, 'CIS 1.01')
+	,(601, 'CIS 1.02')
+	, (4, 'CIS 2.01')
+	, (202, 'CIS 2.02')
+	, (5, 'CIS 2.03')
+	, (10, 'CIS 2.04')
+	, (201, 'CIS 2.05')
+	, (13, 'CIS 2.06')
+	, (12, 'CIS 2.07')
+	, (9, 'CIS 2.08')
+	, (1, 'CIS 2.09')
+	, (608, 'CIS 2.10')
+	, (600, 'CIS 2.11')
+	, (602, 'CIS 2.12')
+	, (101, 'CIS 2.13; CIS 2.14; CIS 2.17')
+	, (200, 'CIS 2.15')
+	, (18, 'CIS 2.16')
+	, (3, 'CIS 3.01')
+	, (408, 'CIS 3.02')
+	, (102, 'CIS 3.03')
+	, (20, 'CIS 3.04')
+	, (603, 'CIS 3.05; CIS 3.06')
+	, (111, 'CIS 3.08')
+	, (109, 'CIS 3.09')
+	, (110, 'CIS 3.10')
+	, (112, 'CIS 3.10')
+
+
     ---------------------------------------------------------------------------------------------------------------
     -- Idiomas
     ---------------------------------------------------------------------------------------------------------------
@@ -307,6 +343,17 @@ BEGIN
                 'https://www.brentozar.com/archive/2015/09/forgotten-maintenance-cycling-the-sql-server-error-log/',
                 NULL
             ),
+			(
+			  20, 
+				'Configuração',
+				'SQL autenticação desativado para bancos de dados contidos',
+				NULL, 
+				'Os bancos de dados contidos não impõem regras de complexidade de senha para usuários autenticados pelo SQL. A ausência de uma política de senha imposta pode aumentar a probabilidade de uma credencial fraca ser estabelecida em um banco de dados contido.',
+				'Verifica se algum banco de dados contido tem SQL autenticação ativado.',
+				'Essa configuração deve ser desativada para garantir que a autenticação SQL não seja usada em bancos de dados contidos',
+				'https://docs.microsoft.com/pt-br/sql/relational-databases/databases/security-best-practices-with-contained-databases?view=sql-server-2017',
+				NULL
+				),
             (
                 100, 
                 'Segurança de Usuários',
@@ -428,6 +475,28 @@ BEGIN
                 NULL,
                 NULL
             ),
+			   (
+			  111, 
+				'Segurança de Usuário',
+				'Menos permissão na conta [public]', 
+				NULL, 
+				'public é uma função de servidor fixa especial que contém todos os logins. Diferente de outras funções de servidor fixas, as permissões podem ser alteradas para a função pública. De acordo com o princípio de menos privilégios, a função de servidor público não deve ser usada para conceder permissões no escopo do servidor, pois elas seriam herdadas por todos os usuários.',
+				'Todo logon do SQL Server pertence à função pública e não pode ser removido dessa função. Portanto, todas as permissões concedidas a essa função estarão disponíveis para todos os logins, a menos que tenham sido explicitamente negadas a logons específicos ou funções de servidor definidas pelo usuário.',
+				'Adicione as permissões estranhas encontradas nos resultados da consulta aos logins específicos nas funções de servidor definidas pelo usuário que requerem o acesso e revogam isso da função pública.',
+				'https://docs.microsoft.com/en-us/sql/relationaldatabases/security/authentication-access/server-level-roles#permissions-of-fixedserver-roles',
+				NULL
+			  ),
+			  (
+			  112, 
+				'Segurança de Usuário',
+				'Acesso do SQL Agent Proxy para [public]', 
+				NULL, 
+				'A função de banco de dados público contém todos os usuários no banco de dados msdb. Os proxies do SQL Agent definem um contexto de segurança no qual uma etapa da tarefa pode ser executada.',
+				'A concessão de acesso a proxies do SQL Agent para a função pública permitiria que todos os usuários utilizassem o proxy que pode ter altos privilégios. Isso provavelmente quebraria o princípio de menos privilégios.',
+				'Revogar o acesso ao <proxyname> a partir da função pública',
+				'https://support.microsoft.com/en-us/help/2160741/best-practices-in-configuringsql-server-agent-proxy-account',
+				 NULL
+			  ),
             (
                 200, 
                 'Programação',
@@ -1104,6 +1173,17 @@ BEGIN
                 'https://www.brentozar.com/archive/2015/09/forgotten-maintenance-cycling-the-sql-server-error-log/',
                 NULL
             ),
+			(  
+			  20, 
+				 'Configurations',
+				 'Ensure SQL Authentication is not used in contained databases',
+				 NULL, 
+				 'Contained databases do not enforce password complexity rules for SQL Authenticated users.The absence of an enforced password policy may increase the likelihood of a weak credential being established in a contained database',
+				 'Checks if any contained databases has SQL Authentication enabled',
+				 'This setting should be disabled to ensure SQL Authentication is not used in contained databases',
+				 'https://docs.microsoft.com/en-us/sql/relational-databases/databases/securitybest-practices-with-contained-databases',
+				 NULL
+				 ),
             (
                 100, 
                 'User Security',
@@ -1225,6 +1305,28 @@ BEGIN
                 NULL,
                 NULL
             ),
+		   (
+			111, 
+				'User Security',
+				'Least Permission on [public] account', 
+				NULL, 
+				'public is a special fixed server role containing all logins. Unlike other fixed server roles, permissions can be changed for the public role. In keeping with the principle of least privileges, the public server role should not be used to grant permissions at the server scope as these would be inherited by all users.',
+				'Every SQL Server login belongs to the public role and cannot be removed from this role. Therefore, any permissions granted to this role will be available to all logins unless they have been explicitly denied to specific logins or user-defined server roles.',
+				'Add the extraneous permissions found in the query results to the specific logins to user-defined server roles which require the access and revoke that from the public role.',
+				'https://docs.microsoft.com/en-us/sql/relationaldatabases/security/authentication-access/server-level-roles#permissions-of-fixedserver-roles',
+				NULL
+				),
+			(
+			112, 
+				'User Security',
+				'SQL Agent Proxy access for [public]', 
+				NULL, 
+				'The public database role contains every user in the msdb database. SQL Agent proxies define a security context in which a job step can run.',
+				'Granting access to SQL Agent proxies for the public role would allow all users to utilize the proxy which may have high privileges. This would likely break the principle of least privileges.',
+				'Revoke access to the <proxyname> from the public role',
+				'https://support.microsoft.com/en-us/help/2160741/best-practices-in-configuringsql-server-agent-proxy-account',
+				NULL
+			),
             (
                 200, 
                 'Programming',
@@ -2697,6 +2799,52 @@ BEGIN
         
     END
 
+	---------------------------------------------------------------------------------------------------------------
+	-- Verify SQL Authentication is not used in contained databases
+	---------------------------------------------------------------------------------------------------------------
+ 
+	DECLARE @Configuracao_SQLAuth_Habilitado TABLE ( Resultado XML )
+
+	INSERT INTO @Configuracao_SQLAuth_Habilitado
+	EXEC('
+			SELECT 
+				name AS ''ContainedAuth/@DBUser''
+			FROM sys.database_principals
+			WHERE name NOT IN (''dbo'',''Information_Schema'',''sys'',''guest'')
+				AND type IN (''U'',''S'',''G'')
+				AND authentication_type = 2
+			FOR XML PATH(''''), ROOT(''Configuracao_SQLAuth_Habilitado''), TYPE'
+			)
+		
+			SET @Resultado = (
+				SELECT TOP(1)
+					Resultado
+				FROM 
+					@Configuracao_SQLAuth_Habilitado
+			)
+
+	 IF (@language = 'pt')
+	 BEGIN
+ 
+	 UPDATE #Resultado
+	 SET 
+	  Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+	  Ds_Detalhes = @Resultado
+	 WHERE 
+	  Id_Verificacao = 20
+
+	 END
+	 ELSE IF (@language = 'en')
+	 BEGIN
+
+	 UPDATE #Resultado
+	 SET 
+	  Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+	  Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_SQLAuth_Habilitado>', 'Error_Log>')
+	 WHERE 
+	  Id_Verificacao = 20
+ 
+	 END
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se existem erros no log de falha de login
     ---------------------------------------------------------------------------------------------------------------
@@ -3465,7 +3613,94 @@ WHERE
             Id_Verificacao = 110
         
     END        
-    ---------------------------------------------------------------------------------------------------------------
+
+	---------------------------------------------------------------------------------------------------------------
+ --  Default permissions specified by Microsoft are granted to the public server role
+ ---------------------------------------------------------------------------------------------------------------
+ 
+	 SET @Resultado = NULL
+
+	 SET @Resultado = (
+
+		SELECT 
+				class_desc AS 'Usuario/@class_desc'
+				, state_desc AS 'Usuario/@state_desc'
+		FROM master.sys.server_permissions
+		WHERE (grantee_principal_id = SUSER_SID(N'public') and state_desc LIKE 'GRANT%')
+			AND NOT (state_desc = 'GRANT' and [permission_name] = 'VIEW ANY DATABASE' and class_desc = 'SERVER')
+			AND NOT (state_desc = 'GRANT' and [permission_name] = 'CONNECT' and class_desc = 'ENDPOINT' and major_id = 2)
+			AND NOT (state_desc = 'GRANT' and [permission_name] = 'CONNECT' and class_desc = 'ENDPOINT' and major_id = 3)
+			AND NOT (state_desc = 'GRANT' and [permission_name] = 'CONNECT' and class_desc = 'ENDPOINT' and major_id = 4)
+			AND NOT (state_desc = 'GRANT' and [permission_name] = 'CONNECT' and class_desc = 'ENDPOINT' and major_id = 5)
+		FOR XML PATH(''), ROOT('Permissao_PUBLIC_role'), TYPE
+			 )
+ 
+
+	 IF (@language = 'pt')
+	 BEGIN
+ 
+	 UPDATE #Resultado
+	 SET 
+	  Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+	  Ds_Detalhes = @Resultado
+	 WHERE 
+	  Id_Verificacao = 111
+
+	 END
+	 ELSE IF (@language = 'en')
+	 BEGIN
+
+	 UPDATE #Resultado
+	 SET 
+	  Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+	  Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Permissao_PUBLIC_role>', 'Permission_PUBLIC_role>'), '<Usuario ', '<User ')
+	 WHERE 
+	  Id_Verificacao = 111
+ 
+	 END
+
+  ---------------------------------------------------------------------------------------------------------------
+ --  Ensure the public role in the msdb database is not granted access to SQL Agent proxies
+ ---------------------------------------------------------------------------------------------------------------
+ 
+	 SET @Resultado = NULL
+
+	 SET @Resultado = (
+
+		SELECT 
+				sp.name AS 'Usuario/@proxyname'
+		FROM msdb.dbo.sysproxylogin spl
+			JOIN msdb.sys.database_principals dp ON dp.sid = spl.sid
+			JOIN msdb.dbo.sysproxies sp ON sp.proxy_id = spl.proxy_id
+		WHERE principal_id = USER_ID('public')
+		FOR XML PATH(''), ROOT('Permissao_PUBLIC_proxy'), TYPE
+			 )
+ 
+
+	 IF (@language = 'pt')
+	 BEGIN
+ 
+	 UPDATE #Resultado
+	 SET 
+	  Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+	  Ds_Detalhes = @Resultado
+	 WHERE 
+	  Id_Verificacao = 112
+
+	 END
+	 ELSE IF (@language = 'en')
+	 BEGIN
+
+	 UPDATE #Resultado
+	 SET 
+	  Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+	  Ds_Detalhes = REPLACE(REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Permissao_PUBLIC_proxy>', 'Permission_PUBLIC_proxy>'), '<Usuario ', '<User ')
+	 WHERE	 
+	  Id_Verificacao = 112
+ 
+	 END
+
+	---------------------------------------------------------------------------------------------------------------
     -- Verifica se comandos xp_cmdshell estão permitidos na instância
     ---------------------------------------------------------------------------------------------------------------
     
@@ -6311,4 +6546,4 @@ END
 
 
 -- EXEC dbo.stpSecurity_Checklist @language = 'pt'
-
+-- exec dbo.stpSecurity_Checklist  @language = 'en'
