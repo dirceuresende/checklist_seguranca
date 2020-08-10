@@ -3445,6 +3445,7 @@ WHERE
 	    AND B.login_name NOT LIKE 'NT AUTHORITY\%'
 	    AND B.login_name NOT LIKE 'AUTORIDADE NT\%'
             AND A.auth_scheme <> 'Kerberos'
+	    AND A.net_transport <> 'Shared memory'
         ORDER BY
             2
         FOR XML PATH(''), ROOT('Usuarios_AD_Sem_Kerberos'), TYPE
