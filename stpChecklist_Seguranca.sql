@@ -3442,6 +3442,7 @@ WHERE
             C.[type_desc] = 'WINDOWS_LOGIN'
             AND C.principal_id > 10
             AND B.nt_domain NOT LIKE 'NT Service%'
+	    AND B.login_name NOT LIKE 'NT Service%'
             AND A.auth_scheme <> 'Kerberos'
         ORDER BY
             2
