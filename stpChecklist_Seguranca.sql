@@ -3344,7 +3344,7 @@ WHERE
 FROM
     [?].sys.database_principals A WITH(NOLOCK)
     LEFT JOIN [?].sys.database_role_members B WITH(NOLOCK) ON A.principal_id = B.member_principal_id
-    LEFT JOIN [?].sys.database_permissions C WITH(NOLOCK) ON A.principal_id = C.grantee_principal_id
+    LEFT JOIN [?].sys.database_permissions C WITH(NOLOCK) ON A.principal_id = C.grantee_principal_id AND C.[permission_name] <> ''CONNECT'' AND C.[state] = ''G''
 WHERE
     B.member_principal_id IS NULL
     AND C.grantee_principal_id IS NULL
