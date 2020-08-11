@@ -3536,15 +3536,15 @@ WHERE
     SET @Resultado = NULL
 
     SET @Resultado = (
-       SELECT 
+		SELECT 
 			pr.[name] AS 'Usuario/@name',
 			pe.[permission_name] AS 'Usuario/@permission_name',
 			pe.[state_desc] AS 'Usuario/@state_desc'
 		FROM
-			sys.server_principals pr JOIN sys.server_permissions pe
-			ON pr.principal_id = pe.grantee_principal_id
+			sys.server_principals pr 
+			LEFT JOIN sys.server_permissions pe ON pr.principal_id = pe.grantee_principal_id
 		WHERE 
-			pr.name like 'BUILTIN%'
+			pr.[name] like 'BUILTIN%'
         FOR XML PATH(''), ROOT('Permissao_BUILTIN'), TYPE
     )
     
@@ -3571,7 +3571,7 @@ WHERE
             Id_Verificacao = 109
         
     END
-
+	
     ---------------------------------------------------------------------------------------------------------------
     -- Local Windows Groups SQL Permissions
     ---------------------------------------------------------------------------------------------------------------
