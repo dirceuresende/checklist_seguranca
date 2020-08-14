@@ -14,6 +14,10 @@ GO
 ALTER PROCEDURE dbo.stpSecurity_Checklist (
     @language VARCHAR(2) = NULL,
     @heavy_operations BIT = 1
+	, @Export NVARCHAR(10) = 'Screen' /*Screen/Table*/
+	, @ExportSchema NVARCHAR(10)  = 'dbo'
+	, @ExportDBName  NVARCHAR(20) = 'master'
+	, @ExportTableName NVARCHAR(50) = 'stpSecurity_Checklist_Table'
 )
 AS 
 BEGIN
@@ -6514,10 +6518,53 @@ WHERE
     ---------------------------------------------------------------------------------------------------------------
     -- Mostra os resultados
     ---------------------------------------------------------------------------------------------------------------
-    
-    IF (@language = 'en')
-    BEGIN
+    DECLARE @ExportSQL NVARCHAR(4000)
+	DECLARE @evaldate DATETIME;
+	SET @evaldate = CONVERT(VARCHAR(20),GETDATE(),120);
 
+ IF (@language = 'en')
+    BEGIN	
+	IF UPPER(LEFT(@Export,1)) = 'T'
+	BEGIN
+		IF OBJECT_ID(@ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName) IS NULL
+		BEGIN
+			SET @ExportSQL = 'CREATE TABLE ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
+		( 
+		evaldate DATETIME
+		, Domain NVARCHAR(50) DEFAULT DEFAULT_DOMAIN()
+		, SQLInstance NVARCHAR(50) DEFAULT @@SERVERNAME
+		, code INT
+		, Category NVARCHAR(50)
+		, Title NVARCHAR(200) 
+		, Result NVARCHAR(200) 
+		, [How this can be an Issue] NVARCHAR(4000) 
+		, [Technical explanation] NVARCHAR(500)	
+		, [How to Fix] NVARCHAR(500)	
+		, [Result Details] XML
+		, [External Reference] XML
+		);'	
+			EXEC sp_executesql @ExportSQL;	
+		END
+
+	SET @ExportSQL = 'INSERT INTO ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
+				(
+				evaldate , code , Category, Title , Result, [How this can be an Issue] 
+				, [Technical explanation] , [How to Fix] , [Result Details] , [External Reference] 
+				)
+		SELECT  @Evaldate [evaldate],
+            Id_Verificacao AS [Code],
+            Ds_Categoria AS [Category],
+            Ds_Titulo AS [Title],
+            Ds_Resultado AS [Result],
+            Ds_Descricao AS [How this can be an Issue],
+            Ds_Verificacao AS [Technical explanation],
+            Ds_Sugestao AS [How to Fix],
+            Ds_Detalhes AS [Result Details],
+            CONVERT(XML, Ds_Referencia) AS [External Reference]
+        FROM 
+            #Resultado'
+	EXEC sp_executesql @ExportSQL, N'@Evaldate DATETIME', @evaldate
+	END
         SELECT 
             Id_Verificacao AS [Code],
             Ds_Categoria AS [Category],
@@ -6534,7 +6581,59 @@ WHERE
     END
     ELSE IF (@language = 'pt')
     BEGIN
-        
+		IF UPPER(LEFT(@Export,1)) = 'T'
+		BEGIN
+			IF OBJECT_ID(@ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName) IS NULL
+			BEGIN
+				SET @ExportSQL = 'CREATE TABLE ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
+			( 
+			[data de avaliação] DATETIME
+			, [domínio] NVARCHAR(50) DEFAULT DEFAULT_DOMAIN()
+			, [Instâncias] NVARCHAR(50) DEFAULT @@SERVERNAME
+			, [Código] INT
+			, [Categoria] NVARCHAR(50)
+			, [O que é verificado] NVARCHAR(200) 
+			, [Avaliação] NVARCHAR(200) 
+			, [Descrição do Problema] NVARCHAR(4000) 
+			, [Detalhamento da Verificação] NVARCHAR(500)	
+			, [Sugestão de Correção] NVARCHAR(500)	
+			, [Resultados da Validação] XML
+			, [URL de Referência] XML
+			);'	
+
+
+
+
+				EXEC sp_executesql @ExportSQL;	
+			END
+
+		SET @ExportSQL = 'INSERT INTO ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
+					(
+						[data de avaliação] 
+						, [Código] 
+						, [Categoria] 
+						, [O que é verificado]
+						, [Avaliação] 
+						, [Descrição do Problema] 
+						, [Detalhamento da Verificação] 	
+						, [Sugestão de Correção] 
+						, [Resultados da Validação] 
+						, [URL de Referência] 
+					)
+			SELECT  @Evaldate [data de avaliação],
+				Id_Verificacao AS [Código],
+				Ds_Categoria AS [Categoria],
+				Ds_Titulo AS [O que é verificado],
+				Ds_Resultado AS [Avaliação],
+				Ds_Descricao AS [Descrição do Problema],
+				Ds_Verificacao AS [Detalhamento da Verificação],
+				Ds_Sugestao AS [Sugestão de Correção],
+				Ds_Detalhes AS [Resultados da Validação],
+				CONVERT(XML, Ds_Referencia) AS [URL de Referência]
+			FROM 
+				#Resultado'
+		EXEC sp_executesql @ExportSQL, N'@Evaldate DATETIME', @evaldate
+		END
         SELECT 
             Id_Verificacao AS [Código],
             Ds_Categoria AS [Categoria],
@@ -6554,7 +6653,6 @@ WHERE
 END
 
 
-
 -- EXEC dbo.stpSecurity_Checklist @language = 'pt'
--- exec dbo.stpSecurity_Checklist  @language = 'en'
+-- exec dbo.stpSecurity_Checklist  @language = 'en', @heavy_operations = 1, @Export = 'Table'
 
