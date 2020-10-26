@@ -2802,49 +2802,58 @@ BEGIN
 	---------------------------------------------------------------------------------------------------------------
 	-- Verify SQL Authentication is not used in contained databases
 	---------------------------------------------------------------------------------------------------------------
- 
-	DECLARE @Configuracao_SQLAuth_Habilitado TABLE ( Resultado XML )
+    
+    IF (@Versao >= 2012)
+    BEGIN
 
-	INSERT INTO @Configuracao_SQLAuth_Habilitado
-	EXEC('
-			SELECT 
-				name AS ''ContainedAuth/@DBUser''
-			FROM sys.database_principals
-			WHERE name NOT IN (''dbo'',''Information_Schema'',''sys'',''guest'')
-				AND type IN (''U'',''S'',''G'')
-				AND authentication_type = 2
-			FOR XML PATH(''''), ROOT(''Configuracao_SQLAuth_Habilitado''), TYPE'
-			)
+	    DECLARE @Configuracao_SQLAuth_Habilitado TABLE ( Resultado XML )
+
+	    INSERT INTO @Configuracao_SQLAuth_Habilitado
+	    EXEC('
+			    SELECT 
+				    name AS ''ContainedAuth/@DBUser''
+			    FROM
+                    sys.database_principals
+			    WHERE
+                    [name] NOT IN (''dbo'',''Information_Schema'',''sys'',''guest'')
+				    AND [type] IN (''U'',''S'',''G'')
+				    AND authentication_type = 2
+			    FOR XML PATH(''''), ROOT(''Configuracao_SQLAuth_Habilitado''), TYPE'
+		)
 		
-			SET @Resultado = (
-				SELECT TOP(1)
-					Resultado
-				FROM 
-					@Configuracao_SQLAuth_Habilitado
-			)
+		SET @Resultado = (
+			SELECT TOP(1)
+				Resultado
+			FROM 
+				@Configuracao_SQLAuth_Habilitado
+		)
 
-	 IF (@language = 'pt')
-	 BEGIN
+	    IF (@language = 'pt')
+	    BEGIN
  
-	 UPDATE #Resultado
-	 SET 
-	  Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
-	  Ds_Detalhes = @Resultado
-	 WHERE 
-	  Id_Verificacao = 20
+	        UPDATE #Resultado
+	        SET 
+	            Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+	            Ds_Detalhes = @Resultado
+	        WHERE 
+	            Id_Verificacao = 20
 
-	 END
-	 ELSE IF (@language = 'en')
-	 BEGIN
+	    END
+	    ELSE IF (@language = 'en')
+	    BEGIN
 
-	 UPDATE #Resultado
-	 SET 
-	  Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
-	  Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_SQLAuth_Habilitado>', 'Error_Log>')
-	 WHERE 
-	  Id_Verificacao = 20
+	        UPDATE #Resultado
+	        SET 
+	            Ds_Resultado = (CASE WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+	            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Configuracao_SQLAuth_Habilitado>', 'Error_Log>')
+	        WHERE 
+	            Id_Verificacao = 20
  
-	 END
+	    END
+
+    END
+
+
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se existem erros no log de falha de login
     ---------------------------------------------------------------------------------------------------------------
@@ -5367,7 +5376,7 @@ WHERE
             WHERE
                 B.is_ms_shipped = 0
                 AND ''?'' <> ''ReportServer''
-                AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
+                AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''stpSecurity_Checklist'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
                 AND NOT (B.[name] LIKE ''stp_DTA_%'' AND ''?'' = ''msdb'')
                 AND NOT (B.[name] = ''sp_readrequest'' AND ''?'' = ''master'')
                 AND EXISTS (
@@ -5450,7 +5459,7 @@ WHERE
             WHERE
                 B.is_ms_shipped = 0
                 AND ''?'' <> ''ReportServer''
-                AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
+                AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''stpSecurity_Checklist'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
                 AND A.definition LIKE ''%xp_cmdshell%''
     
         END'
@@ -5523,7 +5532,7 @@ WHERE
             WHERE
                 B.is_ms_shipped = 0
                 AND ''?'' <> ''ReportServer''
-                AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
+                AND B.[name] NOT IN (''stpChecklist_Seguranca'', ''stpSecurity_Checklist'', ''sp_WhoIsActive'', ''sp_showindex'', ''sp_AllNightLog'', ''sp_AllNightLog_Setup'', ''sp_Blitz'', ''sp_BlitzBackups'', ''sp_BlitzCache'', ''sp_BlitzFirst'', ''sp_BlitzIndex'', ''sp_BlitzLock'', ''sp_BlitzQueryStore'', ''sp_BlitzWho'', ''sp_DatabaseRestore'')
                 AND B.[name] NOT IN (''dt_addtosourcecontrol'', ''dt_addtosourcecontrol_u'', ''dt_adduserobject'', ''dt_adduserobject_vcs'', ''dt_checkinobject'', ''dt_checkinobject_u'', ''dt_checkoutobject'', ''dt_checkoutobject_u'', ''dt_displayoaerror'', ''dt_displayoaerror_u'', ''dt_droppropertiesbyid'', ''dt_dropuserobjectbyid'', ''dt_generateansiname'', ''dt_getobjwithprop'', ''dt_getobjwithprop_u'', ''dt_getpropertiesbyid'', ''dt_getpropertiesbyid_u'', ''dt_getpropertiesbyid_vcs'', ''dt_getpropertiesbyid_vcs_u'', ''dt_isundersourcecontrol'', ''dt_isundersourcecontrol_u'', ''dt_removefromsourcecontrol'', ''dt_setpropertybyid'', ''dt_setpropertybyid_u'', ''dt_validateloginparams'', ''dt_validateloginparams_u'', ''dt_vcsenabled'', ''dt_verstamp006'', ''dt_verstamp007'', ''dt_whocheckedout'', ''dt_whocheckedout_u'')
                 AND A.definition LIKE ''%sp_OACreate%''
             
@@ -5661,7 +5670,7 @@ WHERE
                 B.is_ms_shipped = 0
                 AND A.definition LIKE ''%GRANT %''
                 AND ''?'' NOT IN (''master'', ''ReportServer'')
-                AND B.[name] NOT IN (''dt_addtosourcecontrol'', ''dt_addtosourcecontrol_u'', ''dt_adduserobject'', ''dt_adduserobject_vcs'', ''dt_checkinobject'', ''dt_checkinobject_u'', ''dt_checkoutobject'', ''dt_checkoutobject_u'', ''dt_displayoaerror'', ''dt_displayoaerror_u'', ''dt_droppropertiesbyid'', ''dt_dropuserobjectbyid'', ''dt_generateansiname'', ''dt_getobjwithprop'', ''dt_getobjwithprop_u'', ''dt_getpropertiesbyid'', ''dt_getpropertiesbyid_u'', ''dt_getpropertiesbyid_vcs'', ''dt_getpropertiesbyid_vcs_u'', ''dt_isundersourcecontrol'', ''dt_isundersourcecontrol_u'', ''dt_removefromsourcecontrol'', ''dt_setpropertybyid'', ''dt_setpropertybyid_u'', ''dt_validateloginparams'', ''dt_validateloginparams_u'', ''dt_vcsenabled'', ''dt_verstamp006'', ''dt_verstamp007'', ''dt_whocheckedout'', ''dt_whocheckedout_u'', ''stpChecklist_Seguranca'')
+                AND B.[name] NOT IN (''dt_addtosourcecontrol'', ''dt_addtosourcecontrol_u'', ''dt_adduserobject'', ''dt_adduserobject_vcs'', ''dt_checkinobject'', ''dt_checkinobject_u'', ''dt_checkoutobject'', ''dt_checkoutobject_u'', ''dt_displayoaerror'', ''dt_displayoaerror_u'', ''dt_droppropertiesbyid'', ''dt_dropuserobjectbyid'', ''dt_generateansiname'', ''dt_getobjwithprop'', ''dt_getobjwithprop_u'', ''dt_getpropertiesbyid'', ''dt_getpropertiesbyid_u'', ''dt_getpropertiesbyid_vcs'', ''dt_getpropertiesbyid_vcs_u'', ''dt_isundersourcecontrol'', ''dt_isundersourcecontrol_u'', ''dt_removefromsourcecontrol'', ''dt_setpropertybyid'', ''dt_setpropertybyid_u'', ''dt_validateloginparams'', ''dt_validateloginparams_u'', ''dt_vcsenabled'', ''dt_verstamp006'', ''dt_verstamp007'', ''dt_whocheckedout'', ''dt_whocheckedout_u'', ''stpChecklist_Seguranca'', ''stpSecurity_Checklist'')
             
         END'
 
@@ -6557,4 +6566,3 @@ END
 
 -- EXEC dbo.stpSecurity_Checklist @language = 'pt'
 -- exec dbo.stpSecurity_Checklist  @language = 'en'
-
