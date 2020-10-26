@@ -2852,6 +2852,15 @@ BEGIN
 	    END
 
     END
+    ELSE BEGIN
+        
+        UPDATE #Resultado
+		SET 
+			Ds_Resultado = (CASE WHEN @language = 'pt' THEN 'Não suportado' ELSE 'Not supported' END)
+		WHERE 
+			Id_Verificacao = 20
+
+    END
 
 
     ---------------------------------------------------------------------------------------------------------------
@@ -3996,31 +4005,40 @@ WHERE
             FOR XML PATH(''), ROOT('Databases_Sem_TDE'), TYPE
         )
 
+
+        IF (@language = 'pt')
+        BEGIN
+        
+            UPDATE #Resultado
+            SET 
+                Ds_Resultado = (CASE WHEN @Versao < 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+                Ds_Detalhes = @Resultado
+            WHERE 
+                Id_Verificacao = 300
+
+        END
+        ELSE IF (@language = 'en')
+        BEGIN
+
+            UPDATE #Resultado
+            SET 
+                Ds_Resultado = (CASE WHEN @Versao < 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+                Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Databases_Sem_TDE>', 'Databases_Without_TDE>')
+            WHERE 
+                Id_Verificacao = 300
+        
+        END
+
+
     END
-
-
-
-    IF (@language = 'pt')
-    BEGIN
+    ELSE BEGIN
         
         UPDATE #Resultado
-        SET 
-            Ds_Resultado = (CASE WHEN @Versao < 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
-            Ds_Detalhes = @Resultado
-        WHERE 
-            Id_Verificacao = 300
+		SET 
+			Ds_Resultado = (CASE WHEN @language = 'pt' THEN 'Não suportado' ELSE 'Not supported' END)
+		WHERE 
+			Id_Verificacao = 20
 
-    END
-    ELSE IF (@language = 'en')
-    BEGIN
-
-        UPDATE #Resultado
-        SET 
-            Ds_Resultado = (CASE WHEN @Versao < 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
-            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Databases_Sem_TDE>', 'Databases_Without_TDE>')
-        WHERE 
-            Id_Verificacao = 300
-        
     END
 
     
@@ -4138,34 +4156,44 @@ WHERE
             FOR XML PATH(''), ROOT('Backups_Sem_Criptografia'), TYPE
         )
 
-    END
-    
 
-    IF (@language = 'pt')
-    BEGIN
+        IF (@language = 'pt')
+        BEGIN
+        
+            UPDATE #Resultado
+            SET 
+                Ds_Resultado = (CASE WHEN @Versao <= 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
+                Ds_Detalhes = @Resultado
+            WHERE 
+                Id_Verificacao = 302
+
+        END
+        ELSE IF (@language = 'en')
+        BEGIN
+
+            UPDATE #Resultado
+            SET 
+                Ds_Resultado = (CASE WHEN @Versao <= 2008 THEN 'Not Supported' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
+                Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Backups_Sem_Criptografia>', 'Backups_Without_Encryption>')
+            WHERE 
+                Id_Verificacao = 302
+        
+        END
+
+
+    END
+    ELSE BEGIN
         
         UPDATE #Resultado
-        SET 
-            Ds_Resultado = (CASE WHEN @Versao <= 2008 THEN 'Não suportado' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possível problema encontrado' END),
-            Ds_Detalhes = @Resultado
-        WHERE 
-            Id_Verificacao = 302
+		SET 
+			Ds_Resultado = (CASE WHEN @language = 'pt' THEN 'Não suportado' ELSE 'Not supported' END)
+		WHERE 
+			Id_Verificacao = 20
 
     END
-    ELSE IF (@language = 'en')
-    BEGIN
-
-        UPDATE #Resultado
-        SET 
-            Ds_Resultado = (CASE WHEN @Versao <= 2008 THEN 'Not Supported' WHEN @Resultado IS NULL THEN 'OK' ELSE 'Possible issue found' END),
-            Ds_Detalhes = REPLACE(CAST(@Resultado AS VARCHAR(MAX)), 'Backups_Sem_Criptografia>', 'Backups_Without_Encryption>')
-        WHERE 
-            Id_Verificacao = 302
-        
-    END
-
     
-    
+
+   
     ---------------------------------------------------------------------------------------------------------------
     -- Verifica se existem databases com Recovery Model FULL e sem backup de LOG
     ---------------------------------------------------------------------------------------------------------------
