@@ -3,11 +3,11 @@ GO
 
 --------------------------------------------------------------------------------------------------------------------
 --
--- stpSecurity_Checklist - 1.0.4 (21/06/2019)
--- Checklist de segurança para ambientes SQL Server - Mais de 70 validações de segurança!!
+-- stpSecurity_Checklist - 1.0.5 (09/11/2020)
+-- Checklist de segurança para ambientes SQL Server - Mais de 80 validações de segurança!!
 -- 
 -- Precisa de ajuda para corrigir algum problema?
--- comercial@fabriciolima.net
+-- comercial@powertuning.com.br
 --
 --------------------------------------------------------------------------------------------------------------------
 
@@ -68,43 +68,7 @@ BEGIN
         ELSE @language 
     END)
 
-	---------------------------------------------------------------------------------------------------------------
-    -- Reference to other Security Test Frameworks
-    ---------------------------------------------------------------------------------------------------------------
-	DECLARE @Reference TABLE 
-	( 
-		CodeID INT
-		, Reference NVARCHAR(500)
-	)
-	INSERT INTO @Reference (CodeID, Reference)
-	VALUES(606, 'CIS 1.01')
-	,(601, 'CIS 1.02')
-	, (4, 'CIS 2.01')
-	, (202, 'CIS 2.02')
-	, (5, 'CIS 2.03')
-	, (10, 'CIS 2.04')
-	, (201, 'CIS 2.05')
-	, (13, 'CIS 2.06')
-	, (12, 'CIS 2.07')
-	, (9, 'CIS 2.08')
-	, (1, 'CIS 2.09')
-	, (608, 'CIS 2.10')
-	, (600, 'CIS 2.11')
-	, (602, 'CIS 2.12')
-	, (101, 'CIS 2.13; CIS 2.14; CIS 2.17')
-	, (200, 'CIS 2.15')
-	, (18, 'CIS 2.16')
-	, (3, 'CIS 3.01')
-	, (408, 'CIS 3.02')
-	, (102, 'CIS 3.03')
-	, (20, 'CIS 3.04')
-	, (603, 'CIS 3.05; CIS 3.06')
-	, (111, 'CIS 3.08')
-	, (109, 'CIS 3.09')
-	, (110, 'CIS 3.10')
-	, (112, 'CIS 3.10')
-
-
+	
     ---------------------------------------------------------------------------------------------------------------
     -- Idiomas
     ---------------------------------------------------------------------------------------------------------------
@@ -3887,7 +3851,8 @@ FROM
    [?].sys.assemblies WITH(NOLOCK)
 WHERE 
     [permission_set] <> 1 
-    AND is_user_defined = 1'
+    AND is_user_defined = 1
+    AND [clr_name] NOT LIKE ''microsoft.sqlserver.integrationservices.server%'''
     
     
     SET @Resultado = NULL
@@ -6401,7 +6366,7 @@ WHERE
 	END CATCH
 
 
-    ---------------------------------------------------------------------------------------------------------------
+	---------------------------------------------------------------------------------------------------------------
     -- Verifica se existem bases de dados "públicas" na instância
     ---------------------------------------------------------------------------------------------------------------
 
@@ -6495,6 +6460,7 @@ WHERE
     -- Verifica se o Firewall do Windows está ativado
     ---------------------------------------------------------------------------------------------------------------
 
+	
     IF (@IsAmazonRDS = 0)
     BEGIN
 
@@ -6589,7 +6555,6 @@ WHERE
  
 
 END
-
 
 
 -- EXEC dbo.stpSecurity_Checklist @language = 'pt'
