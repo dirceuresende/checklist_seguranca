@@ -3,7 +3,7 @@ GO
 
 --------------------------------------------------------------------------------------------------------------------
 --
--- stpSecurity_Checklist - 1.0.5 (09/11/2020)
+-- stpSecurity_Checklist - 1.0.6 (18/01/2021)
 -- Checklist de segurança para ambientes SQL Server - Mais de 80 validações de segurança!!
 -- 
 -- Precisa de ajuda para corrigir algum problema?
@@ -71,6 +71,27 @@ BEGIN
         WHEN NULLIF(LTRIM(RTRIM(@language)), '') IS NULL THEN (SELECT CASE WHEN [value] IN (5, 7, 27) THEN 'pt' ELSE 'en' END FROM sys.configurations WHERE [name] = 'default language')
         ELSE @language 
     END)
+
+	/*Find SQL Instance name for output table*/
+	DECLARE @ThisServer NVARCHAR(500)
+	DECLARE @errMessage VARCHAR(MAX) 
+	SET @errMessage = ERROR_MESSAGE()
+	BEGIN TRY
+	  IF (select CHARINDEX('\',@@SERVERNAME)) > 0
+	  /*Named instance will always use NetBIOS name*/
+		SELECT @ThisServer = @@SERVERNAME
+	  IF (select CHARINDEX('\',@@SERVERNAME)) = 0
+	  /*Not named, use the NetBIOS name instead of @@ServerName*/
+		SELECT @ThisServer = CAST( Serverproperty( 'ComputerNamePhysicalNetBIOS' ) AS NVARCHAR(500))
+	END TRY
+	BEGIN CATCH
+	  SELECT @errMessage  = ERROR_MESSAGE()
+	  RAISERROR (@errMessage,0,1) WITH NOWAIT; 
+	END CATCH
+
+	/*Find domain name for output table*/
+	DECLARE @ThisDomain NVARCHAR(100)
+	EXEC master.dbo.xp_regread 'HKEY_LOCAL_MACHINE', 'SYSTEM\CurrentControlSet\services\Tcpip\Parameters', N'Domain',@ThisDomain OUTPUT
 
     
     ---------------------------------------------------------------------------------------------------------------
@@ -6521,12 +6542,10 @@ WHERE
     ---------------------------------------------------------------------------------------------------------------
     -- Mostra os resultados
     ---------------------------------------------------------------------------------------------------------------
-    DECLARE @ExportSQL NVARCHAR(4000)
+        DECLARE @ExportSQL NVARCHAR(4000)
 	DECLARE @evaldate DATETIME;
 	SET @evaldate = CONVERT(VARCHAR(20),GETDATE(),120);
 
- IF (@language = 'en')
-    BEGIN	
 	IF UPPER(LEFT(@Export,1)) = 'T'
 	BEGIN
 		IF OBJECT_ID(@ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName) IS NULL
@@ -6555,6 +6574,8 @@ WHERE
 				, [Technical explanation] , [How to Fix] , [Result Details] , [External Reference] 
 				)
 		SELECT  @Evaldate [evaldate],
+			''' + @ThisDomain+ ''' Domain,
+			''' + @ThisServer + ''' SQLInstance,
             Id_Verificacao AS [Code],
             Ds_Categoria AS [Category],
             Ds_Titulo AS [Title],
@@ -6568,21 +6589,7 @@ WHERE
             #Resultado'
 	EXEC sp_executesql @ExportSQL, N'@Evaldate DATETIME', @evaldate
 	END
-        SELECT 
-            Id_Verificacao AS [Code],
-            Ds_Categoria AS [Category],
-            Ds_Titulo AS [Title],
-            Ds_Resultado AS [Result],
-            Ds_Descricao AS [How this can be an Issue],
-            Ds_Verificacao AS [Technical explanation],
-            Ds_Sugestao AS [How to Fix],
-            Ds_Detalhes AS [Result Details],
-            CONVERT(XML, Ds_Referencia) AS [External Reference]
-        FROM 
-            #Resultado
-
-    END
-    ELSE IF (@language = 'pt')
+    IF (@language = 'pt')
     BEGIN
 		IF UPPER(LEFT(@Export,1)) = 'T'
 		BEGIN
@@ -6612,7 +6619,9 @@ WHERE
 
 		SET @ExportSQL = 'INSERT INTO ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
 					(
-						[data de avaliação] 
+						[data de avaliação],
+						''' + @ThisDomain+ ''' [domínio],
+						''' + @ThisServer + '''  [Instâncias],
 						, [Código] 
 						, [Categoria] 
 						, [O que é verificado]
@@ -6637,6 +6646,28 @@ WHERE
 				#Resultado'
 		EXEC sp_executesql @ExportSQL, N'@Evaldate DATETIME', @evaldate
 		END
+END
+
+IF (@language = 'en')
+    BEGIN
+
+        SELECT 
+            Id_Verificacao AS [Code],
+            Ds_Categoria AS [Category],
+            Ds_Titulo AS [Title],
+            Ds_Resultado AS [Result],
+            Ds_Descricao AS [How this can be an Issue],
+            Ds_Verificacao AS [Technical explanation],
+            Ds_Sugestao AS [How to Fix],
+            Ds_Detalhes AS [Result Details],
+            CONVERT(XML, Ds_Referencia) AS [External Reference]
+        FROM 
+            #Resultado
+
+    END
+    ELSE IF (@language = 'pt')
+    BEGIN
+        
         SELECT 
             Id_Verificacao AS [Código],
             Ds_Categoria AS [Categoria],
@@ -6658,3 +6689,4 @@ END
 
 -- EXEC dbo.stpSecurity_Checklist @language = 'pt'
 -- exec dbo.stpSecurity_Checklist  @language = 'en'
+-- exec dbo.stpSecurity_Checklist  @language = 'en', @heavy_operations = 1, @Export = 'Table'
