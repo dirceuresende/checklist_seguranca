@@ -3,7 +3,7 @@ GO
 
 --------------------------------------------------------------------------------------------------------------------
 --
--- stpSecurity_Checklist - 1.0.5 (09/11/2020)
+-- stpSecurity_Checklist - 1.0.6 (18/01/2021)
 -- Checklist de segurança para ambientes SQL Server - Mais de 80 validações de segurança!!
 -- 
 -- Precisa de ajuda para corrigir algum problema?
@@ -14,6 +14,10 @@ GO
 ALTER PROCEDURE dbo.stpSecurity_Checklist (
     @language VARCHAR(2) = NULL,
     @heavy_operations BIT = 1
+	, @Export NVARCHAR(10) = 'Screen' /*Screen/Table*/
+	, @ExportSchema NVARCHAR(10)  = 'dbo'
+	, @ExportDBName  NVARCHAR(20) = 'master'
+	, @ExportTableName NVARCHAR(50) = 'stpSecurity_Checklist_Table'
 )
 AS 
 BEGIN
@@ -67,6 +71,27 @@ BEGIN
         WHEN NULLIF(LTRIM(RTRIM(@language)), '') IS NULL THEN (SELECT CASE WHEN [value] IN (5, 7, 27) THEN 'pt' ELSE 'en' END FROM sys.configurations WHERE [name] = 'default language')
         ELSE @language 
     END)
+
+	/*Find SQL Instance name for output table*/
+	DECLARE @ThisServer NVARCHAR(500)
+	DECLARE @errMessage VARCHAR(MAX) 
+	SET @errMessage = ERROR_MESSAGE()
+	BEGIN TRY
+	  IF (select CHARINDEX('\',@@SERVERNAME)) > 0
+	  /*Named instance will always use NetBIOS name*/
+		SELECT @ThisServer = @@SERVERNAME
+	  IF (select CHARINDEX('\',@@SERVERNAME)) = 0
+	  /*Not named, use the NetBIOS name instead of @@ServerName*/
+		SELECT @ThisServer = CAST( Serverproperty( 'ComputerNamePhysicalNetBIOS' ) AS NVARCHAR(500))
+	END TRY
+	BEGIN CATCH
+	  SELECT @errMessage  = ERROR_MESSAGE()
+	  RAISERROR (@errMessage,0,1) WITH NOWAIT; 
+	END CATCH
+
+	/*Find domain name for output table*/
+	DECLARE @ThisDomain NVARCHAR(100)
+	EXEC master.dbo.xp_regread 'HKEY_LOCAL_MACHINE', 'SYSTEM\CurrentControlSet\services\Tcpip\Parameters', N'Domain',@ThisDomain OUTPUT
 
     
     ---------------------------------------------------------------------------------------------------------------
@@ -6517,8 +6542,113 @@ WHERE
     ---------------------------------------------------------------------------------------------------------------
     -- Mostra os resultados
     ---------------------------------------------------------------------------------------------------------------
-    
-    IF (@language = 'en')
+        DECLARE @ExportSQL NVARCHAR(4000)
+	DECLARE @evaldate DATETIME;
+	SET @evaldate = CONVERT(VARCHAR(20),GETDATE(),120);
+
+	IF UPPER(LEFT(@Export,1)) = 'T'
+	BEGIN
+		IF OBJECT_ID(@ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName) IS NULL
+		BEGIN
+			SET @ExportSQL = 'CREATE TABLE ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
+		( 
+		evaldate DATETIME
+		, Domain NVARCHAR(50) DEFAULT DEFAULT_DOMAIN()
+		, SQLInstance NVARCHAR(50) DEFAULT @@SERVERNAME
+		, code INT
+		, Category NVARCHAR(50)
+		, Title NVARCHAR(200) 
+		, Result NVARCHAR(200) 
+		, [How this can be an Issue] NVARCHAR(4000) 
+		, [Technical explanation] NVARCHAR(500)	
+		, [How to Fix] NVARCHAR(500)	
+		, [Result Details] XML
+		, [External Reference] XML
+		);'	
+			EXEC sp_executesql @ExportSQL;	
+		END
+
+	SET @ExportSQL = 'INSERT INTO ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
+				(
+				evaldate , code , Category, Title , Result, [How this can be an Issue] 
+				, [Technical explanation] , [How to Fix] , [Result Details] , [External Reference] 
+				)
+		SELECT  @Evaldate [evaldate],
+			''' + @ThisDomain+ ''' Domain,
+			''' + @ThisServer + ''' SQLInstance,
+            Id_Verificacao AS [Code],
+            Ds_Categoria AS [Category],
+            Ds_Titulo AS [Title],
+            Ds_Resultado AS [Result],
+            Ds_Descricao AS [How this can be an Issue],
+            Ds_Verificacao AS [Technical explanation],
+            Ds_Sugestao AS [How to Fix],
+            Ds_Detalhes AS [Result Details],
+            CONVERT(XML, Ds_Referencia) AS [External Reference]
+        FROM 
+            #Resultado'
+	EXEC sp_executesql @ExportSQL, N'@Evaldate DATETIME', @evaldate
+	END
+    IF (@language = 'pt')
+    BEGIN
+		IF UPPER(LEFT(@Export,1)) = 'T'
+		BEGIN
+			IF OBJECT_ID(@ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName) IS NULL
+			BEGIN
+				SET @ExportSQL = 'CREATE TABLE ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
+			( 
+			[data de avaliação] DATETIME
+			, [domínio] NVARCHAR(50) DEFAULT DEFAULT_DOMAIN()
+			, [Instâncias] NVARCHAR(50) DEFAULT @@SERVERNAME
+			, [Código] INT
+			, [Categoria] NVARCHAR(50)
+			, [O que é verificado] NVARCHAR(200) 
+			, [Avaliação] NVARCHAR(200) 
+			, [Descrição do Problema] NVARCHAR(4000) 
+			, [Detalhamento da Verificação] NVARCHAR(500)	
+			, [Sugestão de Correção] NVARCHAR(500)	
+			, [Resultados da Validação] XML
+			, [URL de Referência] XML
+			);'	
+
+
+
+
+				EXEC sp_executesql @ExportSQL;	
+			END
+
+		SET @ExportSQL = 'INSERT INTO ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
+					(
+						[data de avaliação],
+						''' + @ThisDomain+ ''' [domínio],
+						''' + @ThisServer + '''  [Instâncias],
+						, [Código] 
+						, [Categoria] 
+						, [O que é verificado]
+						, [Avaliação] 
+						, [Descrição do Problema] 
+						, [Detalhamento da Verificação] 	
+						, [Sugestão de Correção] 
+						, [Resultados da Validação] 
+						, [URL de Referência] 
+					)
+			SELECT  @Evaldate [data de avaliação],
+				Id_Verificacao AS [Código],
+				Ds_Categoria AS [Categoria],
+				Ds_Titulo AS [O que é verificado],
+				Ds_Resultado AS [Avaliação],
+				Ds_Descricao AS [Descrição do Problema],
+				Ds_Verificacao AS [Detalhamento da Verificação],
+				Ds_Sugestao AS [Sugestão de Correção],
+				Ds_Detalhes AS [Resultados da Validação],
+				CONVERT(XML, Ds_Referencia) AS [URL de Referência]
+			FROM 
+				#Resultado'
+		EXEC sp_executesql @ExportSQL, N'@Evaldate DATETIME', @evaldate
+		END
+END
+
+IF (@language = 'en')
     BEGIN
 
         SELECT 
@@ -6559,3 +6689,4 @@ END
 
 -- EXEC dbo.stpSecurity_Checklist @language = 'pt'
 -- exec dbo.stpSecurity_Checklist  @language = 'en'
+-- exec dbo.stpSecurity_Checklist  @language = 'en', @heavy_operations = 1, @Export = 'Table'
