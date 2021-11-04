@@ -6538,7 +6538,6 @@ WHERE
     END
 
 
-        
     ---------------------------------------------------------------------------------------------------------------
     -- Mostra os resultados
     ---------------------------------------------------------------------------------------------------------------
@@ -6553,8 +6552,8 @@ WHERE
 			SET @ExportSQL = 'CREATE TABLE ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
 		( 
 		evaldate DATETIME
-		, Domain NVARCHAR(50) DEFAULT DEFAULT_DOMAIN()
-		, SQLInstance NVARCHAR(50) DEFAULT @@SERVERNAME
+		, Domain NVARCHAR(50) DEFAULT ''' + @ThisDomain+ '''
+		, SQLInstance NVARCHAR(50) DEFAULT ''' + @ThisServer + '''
 		, code INT
 		, Category NVARCHAR(50)
 		, Title NVARCHAR(200) 
@@ -6574,8 +6573,6 @@ WHERE
 				, [Technical explanation] , [How to Fix] , [Result Details] , [External Reference] 
 				)
 		SELECT  @Evaldate [evaldate],
-			''' + @ThisDomain+ ''' Domain,
-			''' + @ThisServer + ''' SQLInstance,
             Id_Verificacao AS [Code],
             Ds_Categoria AS [Category],
             Ds_Titulo AS [Title],
@@ -6598,8 +6595,8 @@ WHERE
 				SET @ExportSQL = 'CREATE TABLE ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
 			( 
 			[data de avaliação] DATETIME
-			, [domínio] NVARCHAR(50) DEFAULT DEFAULT_DOMAIN()
-			, [Instâncias] NVARCHAR(50) DEFAULT @@SERVERNAME
+			, [domínio] NVARCHAR(50) DEFAULT ''' + @ThisDomain+ '''
+			, [Instâncias] NVARCHAR(50) DEFAULT ''' + @ThisServer + '''
 			, [Código] INT
 			, [Categoria] NVARCHAR(50)
 			, [O que é verificado] NVARCHAR(200) 
@@ -6620,8 +6617,6 @@ WHERE
 		SET @ExportSQL = 'INSERT INTO ' + @ExportDBName + '.' + @ExportSchema  + '.' + @ExportTableName + '
 					(
 						[data de avaliação],
-						''' + @ThisDomain+ ''' [domínio],
-						''' + @ThisServer + '''  [Instâncias],
 						, [Código] 
 						, [Categoria] 
 						, [O que é verificado]
